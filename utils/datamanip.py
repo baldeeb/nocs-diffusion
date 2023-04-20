@@ -26,17 +26,27 @@ def random_SE3():
     return T
 
 
+import torch
+from pytorch3d.transforms import quaternion_to_matrix as quat2mat
+from pytorch3d.transforms import random_quaternions as rand_quat
 
+def apply_transform(x, quat, t, s):
+    '''
+    Args:
+        x: (B, N, D) tensor of points
+        quat: (B, 4) tensor of quaternions
+        t: (B, 3) tensor of translations
+        s: (B, 1) tensor of scales
+    '''
+    T = quat2mat(quat).to(x)
+    puff_up = lambda v: v.unsqueeze(1).to(x)
+    s, t = puff_up(s), puff_up(t)
+    return (x @ T * s) + t
 
-
-#### TODO: REMOVE 
-
-import matplotlib.pyplot as plt
-
-def visualize_point_cloud(points, colors=None, show=True):
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(points[:, 0], points[:, 1], points[:, 2], c=colors)
-    ax.set_xlabel('X'); ax.set_ylabel('Y'); ax.set_zlabel('Z')
-    if show: plt.show()
-
+def get_random_qts(B=1, catted=False):
+    quat = rand_quat(B)
+    t = torch.rand(B, 3)*0.25
+    s = torch.rand(B, 1)*0.25 + 1.0
+    if catted:
+        return torch.cat([quat, t, s], dim=1)
+    return quat, t, s
