@@ -108,14 +108,13 @@ class ModelSaver():
         torch.save(model.state_dict(), self.DIR/FILE)
 
 def train(model:nn.Module, 
-          dataloader:DataLoader, 
+          dataloader:DataLoader,
+          learning_rate:float=1e-3,
           num_epochs:int=10000, 
           log:str=lambda *_:None, 
           save:ModelSaver=lambda *_:None):
-    
-    
-    optim = torch.optim.Adam(model.parameters(), lr=1e-3)
-    
+    optimizer = torch.optim.Adam(model.parameters(), 
+                                 lr=learning_rate)
     model.train()
     for epoch in tqdm(range(num_epochs)):
         log({'epoch': epoch})
@@ -126,29 +125,26 @@ def train(model:nn.Module,
             x_t = apply_transform(x, q, t, s)
 
             loss = model.get_loss(x_t, torch.cat([q, t, s], dim=1))
-            
-            optim.zero_grad(); loss.backward(); optim.step()
-
+            optimizer.zero_grad(); loss.backward(); optimizer.step()
             log({'loss': loss.item()})
-
             save(model, epoch)
             eval_losses = evaluate(model, points[:100])
             log(eval_losses)
 
+n_augs = 8
+batch_size = 32
 
-name='category-level-batch32x32'
-model_saver = ModelSaver('checkpoints', name, period=1000)
 
-
-collate_fn = CollateFunctor(num_aug=32)
+name=f'category-level-batch{batch_size}x{n_augs}'
+model_saver = ModelSaver('checkpoints', name, 
+                         period=1000)
+collate_fn = CollateFunctor(num_aug=n_augs)
 dataloader = DataLoader(test_dset, 
                         collate_fn=collate_fn, 
-                        batch_size=32, 
+                        batch_size=batch_size, 
                         num_workers=0, 
                         shuffle=True)
-
 model = PoseDiffModel().to(device)
-
 wandb.init(project="diffusion", name=name)
 train(model, dataloader, log=wandb.log, save=model_saver)
 # train(model, dataloader)  # For debugging
