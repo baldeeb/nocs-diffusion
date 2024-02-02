@@ -1,7 +1,7 @@
 
 class Config:
-    device = 'cpu'
+    device = 'cuda'
     
     # Data
-    batch_size = 2
+    batch_size = 1
     shuffle = False
