@@ -52,12 +52,9 @@ class PointRgbdRenderer(PointsRenderer):
 
         # permute so image comes at the end
         images = images.permute(0, 2, 3, 1)
-        depths = fragments.zbuf.permute(0, 3, 1, 2)[:, :1]
+        depths = fragments.zbuf[:,:,:, :1]
 
-        return {'images':images, 
-                'depths': depths,
-                # 'depths': dists2[:, :, :, :]
-            }
+        return {'images':images, 'depths': depths,}
 
 
 class RendererWrapper(nn.Module):
