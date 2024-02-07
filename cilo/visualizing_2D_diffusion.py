@@ -6,14 +6,14 @@ from PIL import Image
 import numpy as np
 import torch
 from utils.nocs_generator import NOCSObjectRenderer
-from utils.nocs_generator import PointCloudLoader
+from utils.dataloader import PointCloudLoader
 from math import ceil
 
 # Add noise
 num_renders  = 6
 steps        = 100
 beta_1       = 1e-4
-beta_max     = 0.025
+beta_max     = 0.01
 
 # Setup Forward Diffusion
 var_sched = VarianceSchedule(beta_1, beta_max, steps)

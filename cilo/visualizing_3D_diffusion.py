@@ -1,7 +1,7 @@
 from utils.diffusion import (VarianceSchedule, Diffuser)
 from utils.nocs_renderer import RendererWrapper, sample_transforms
 from utils.visualization import viz_image_batch
-from utils.nocs_generator import PointCloudLoader, NOCSObjectRenderer
+from utils.dataloader import PointCloudLoader
 import torch
 from math import ceil
 
