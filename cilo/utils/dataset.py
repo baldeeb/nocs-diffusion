@@ -45,7 +45,7 @@ class ShapeNetCore(Dataset):
         assert scale_mode is None or scale_mode in ('global_unit', 'shape_unit', 
                                                     'shape_bbox', 'shape_half', 
                                                     'shape_34', 'nocs', 
-                                                    'centered_nocs',)
+                                                    'centered_nocs', None)
         self.path = path
         if 'all' in cates:
             cates = cate_to_synsetid.keys()
@@ -129,9 +129,11 @@ class ShapeNetCore(Dataset):
                     pc_min, _ = pc.min(dim=0, keepdim=True) # (1, 3)
                     shift = ((pc_min + pc_max) / 2).view(1, 3)
                     scale = (pc_max - pc_min).norm(dim=-1).view(1,1)
-                else:
+                elif self.scale_mode == None:
                     shift = torch.zeros([1, 3])
                     scale = torch.ones([1, 1])
+                else:
+                    raise RuntimeError('Unexpected scale_mode...')
 
                 pc = (pc - shift) / scale
 

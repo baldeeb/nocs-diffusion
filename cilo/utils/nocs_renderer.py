@@ -26,11 +26,46 @@ def sample_transforms(num_vars,
     )
     return Rs, Ts
 
-class NOCSRenderer(nn.Module):
+class PointRgbdRenderer(PointsRenderer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+    def forward(self, point_clouds, **kwargs) -> torch.Tensor:
+        # TODO: Cite the orihinal implementation
+        fragments = self.rasterizer(point_clouds, **kwargs)
+
+        # Construct weights based on the distance of a point to the true point.
+        # However, this could be done differently: e.g. predicted as opposed
+        # to a function of the weights.
+        r = self.rasterizer.raster_settings.radius
+
+        dists2 = fragments.dists.permute(0, 3, 1, 2)
+        indices = fragments.idx.long().permute(0, 3, 1, 2)
+        weights = 1 - dists2 / (r * r)
+        images = self.compositor(
+            indices,
+            weights,
+            point_clouds.features_packed().permute(1, 0),
+            **kwargs,
+        )
+
+        # permute so image comes at the end
+        images = images.permute(0, 2, 3, 1)
+        depths = fragments.zbuf.permute(0, 3, 1, 2)[:, :1]
+
+        return {'images':images, 
+                'depths': depths,
+                # 'depths': dists2[:, :, :, :]
+            }
+
+
+class RendererWrapper(nn.Module):
+    '''Wraps Camera, Rasteraizer, and Renderer'''
     def __init__(self,
-                 image_size=512,
-                 pt_radius=0.03,
-                 pts_per_pxl=10,
+                 image_size=64,
+                 pt_radius=0.04,
+                 pts_per_pxl=4,
                  aspect_ratio=torch.tensor(1.0),
                  cam_fov=torch.tensor(60),
                  znear=0.01,
@@ -50,54 +85,45 @@ class NOCSRenderer(nn.Module):
         self._elev_range = elev_range
         self._azim_range = azim_range
 
-
-
-    def __call__(self, verts, feat, num_variations=None, Rs=None, Ts=None):
-        '''
-        This function currently is intended to render a single cloud from varied views within a range.
-        Args:
-            Verts, feats: [num points x {3, n}]
-        Return:
-            number of rendered images
-        '''
-        # assert verts.ndim == feat.ndim == 2, "Cannot yet handle batches."
-        assert num_variations is not None or not (Rs is None or Ts is None), \
-            "Either num_variations or bot Rs & Ts should be set."
-        
-        if Rs==None or Ts==None: 
-            Rs, Ts = sample_transforms(
-                num_variations,
-                self._dist_range, 
-                self._elev_range, 
-                self._azim_range, 
-            ) 
-        else:
-            assert len(Rs) == len(Ts), "Rotations and Translations should be equal in count."
-            num_variations = len(Rs)
-
-        obj_center = (verts.max(0).values - verts.min(0).values) / 2
-        centered = verts - obj_center
-        if feat is None: feat = pts
-        # feat = torch.concatenate([verts, feat], dim=-1)
-        pts = Pointclouds(points=centered.repeat(num_variations, 1, 1), 
-                          features=feat.repeat(num_variations, 1, 1))
-
-        # Initialize a camera.        
+    def _get_renderer(self,Rs, Ts, device):
         cameras = FoVPerspectiveCameras(
-            device=pts.device,
+            device=device, 
             aspect_ratio=self._aspect_ratio,
             fov=self._fov,
             R=Rs, T=Ts,
             znear=self._znear
         )
-
-        renderer = PointsRenderer(
-            rasterizer=PointsRasterizer(
-                cameras=cameras,
-                raster_settings=self.raster_settings
-            ),
+        rasterizer = PointsRasterizer(
+            cameras=cameras,
+            raster_settings=self.raster_settings
+        )
+        renderer = PointRgbdRenderer(
+            rasterizer=rasterizer,
             compositor=AlphaCompositor()
         )
+        return renderer
 
-        images = renderer(pts)
-        return images
+    def _sample_transforms(self, n):
+        return sample_transforms(n, self._dist_range, self._elev_range, 
+                                 self._azim_range,)
+
+    def __call__(self, verts, feat, num_variations=None, Rs=None, Ts=None):
+        '''
+        This function currently is intended to render a single cloud from varied views within a range.
+        Args:
+            Verts, feats: [B x N x {3, F}]
+        Return:
+            number of rendered images & depth images
+        '''
+        if Rs==None or Ts==None: 
+            if num_variations is None: num_variations = 1
+            Rs, Ts = self._sample_transforms(num_variations)
+        elif Rs is not None and Ts is not None :
+            assert len(Rs) == len(Ts), "Rotations and Translations should be equal in count."
+            num_variations = len(Rs)
+        else: assert False, "Either num_variations or bot Rs & Ts should be set."
+
+        pts = Pointclouds(points=verts.repeat(num_variations, 1, 1), 
+                          features=feat.repeat(num_variations, 1, 1))
+        render = self._get_renderer(Rs, Ts, pts.device)
+        return render(pts)

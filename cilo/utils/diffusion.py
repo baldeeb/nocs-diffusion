@@ -25,10 +25,11 @@ class VarianceSchedule(nn.Module):
 
 
 class Diffuser(nn.Module):
-    def __init__(self, var_sched:VarianceSchedule):
+    def __init__(self, var_sched:VarianceSchedule, mean=0.0):
         super().__init__()
         self.var_sched = var_sched
+        self._mu = mean
     def __call__(self, x:Tensor, t:Optional[int]=None):  
         noise = torch.rand(x.shape, device=x.device) - 0.5
         s, n = self.var_sched.sample(noise.shape[0], t)
-        return x*s + noise*n
+        return x*s + (noise + self._mu)*n
