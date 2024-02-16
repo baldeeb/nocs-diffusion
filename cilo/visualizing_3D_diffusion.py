@@ -30,7 +30,9 @@ render = RendererWrapper()
 pts = dataloader()
 Rs, Ts = sample_transforms(1)
 diffed_bar = torch.stack([diffuse(pts[0], i) for i in range(0, num_steps, ceil(num_steps / show_count))])
-images = torch.concatenate([render(pts[0], diffed_bar[i], Rs=Rs, Ts=Ts)['images'] for i in range(show_count)])
-viz_image_batch(images.clip(0.0, 1.0).detach().cpu().numpy())
+renders = [render(pts[0], diffed_bar[i], Rs=Rs, Ts=Ts) for i in range(show_count)]
+images = torch.concatenate([r['images'] for r in renders])
+images = images.clip(0.0, 1.0)
+viz_image_batch(images.detach().cpu().numpy())
 
 print('Done.')

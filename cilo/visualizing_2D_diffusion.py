@@ -1,8 +1,8 @@
 from utils.diffusion import (VarianceSchedule, Diffuser)
 from utils.visualization import viz_image_batch
-from utils.nocs_generator import (NOCSObjectRenderer, nocs_extractor)
+from utils.nocs_generator import nocs_extractor
 from utils.dataloader import PointCloudLoader
-from utils.nocs_renderer import RendererWrapper
+from utils.nocs_renderer import RendererWrapper, mask_from_depth
 
 from math import ceil
 from time import time
@@ -54,8 +54,7 @@ renders = render(diff_x, diff_fx, 1)
 images = renders['images']
 depths = renders['depths']
 
-mask = torch.zeros_like(depths)
-mask[depths!=-1] = 1
+mask = mask_from_depth(depths)
 # mask = mask.permute(1,2,0)[None]
 
 # diff_ims = torch.stack([diffuse(image, i) for i in range(0, steps, ceil(steps/num_renders))])
