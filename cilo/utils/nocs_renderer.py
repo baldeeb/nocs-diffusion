@@ -9,6 +9,11 @@ from pytorch3d.renderer import PointsRasterizer
 from pytorch3d.renderer import PointsRenderer
 from pytorch3d.renderer import AlphaCompositor
 
+def mask_from_depth(depth_ims):
+    masks = torch.zeros_like(depth_ims)
+    masks[depth_ims!=-1] = 1
+    return masks
+
 def rands_in_range(range, count):
     rand = torch.rand(count)
     return rand * (range[1] - range[0]) + range[0]
