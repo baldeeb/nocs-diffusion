@@ -1,108 +1,92 @@
 import torch
-import torch.nn.functional as F
-from torch.nn import Module, Parameter, ModuleList
-import numpy as np
+from torch import nn
+from torch.nn import Module, Identity, Conv2d
+from torchvision.models import resnet18
+from torchvision.transforms import Resize
+from torchvision.models.segmentation import deeplabv3_resnet50
 
-
-class DiffusionPoint(Module):
-
-    def __init__(self, net, var_sched:VarianceSchedule):
+class CtxtEncoder(Module):
+    def __init__(self, in_dim, out_dim):
         super().__init__()
-        self.net = net
-        self.var_sched = var_sched
+        self.in_dim, self.out_dim = in_dim, out_dim
+        self._net = resnet18()
+        self._net.conv1 = Conv2d(in_dim, 64, (7, 7), (2, 2), (3, 3), bias=False)
+        self._net.fc = nn.Linear(512, out_dim)
 
-    def get_loss(self, x_0, context, t=None):
-        """
-        Args:
-            x_0:  Input  //point cloud, (B, N, d).
-            context:  Shape latent, (B, F).
-        """
-        # Add noise to data.
-        e_rand = torch.randn_like(x_0)  # (B, N, d)
+    def forward(self, x):
+        return self._net(x)
+
+
+class FilmResLayer(nn.Module):
+    def __init__(self, in_dim, out_dim, ctx_dim):
+        super().__init__()
+
+        self.conv1 = Conv2d(in_dim, out_dim, 3, 1, 1)
+        self.activ1 = nn.GELU()
 
         
-        e_theta = self.net(...)
-
-
-
-
-
-
-
-
-
-
-        batch_size, _, point_dim = x_0.size()
-        if t == None:
-            t = self.var_sched.uniform_sample_t(batch_size)
-        alpha_bar = self.var_sched.alpha_bars[t]
-        beta = self.var_sched.betas[t]
-
-        c0 = torch.sqrt(alpha_bar).view(-1, 1, 1)       # (B, 1, 1)
-        c1 = torch.sqrt(1 - alpha_bar).view(-1, 1, 1)   # (B, 1, 1)
-
-        e_rand = torch.randn_like(x_0)  # (B, N, d)
-        e_theta = self.net(c0 * x_0 + c1 * e_rand, beta=beta, context=context)
-
-        loss = F.mse_loss(e_theta.view(-1, point_dim), e_rand.view(-1, point_dim), reduction='mean')
-        return loss
-
-    def sample(self, num_points, context, point_dim=3, flexibility=0.0, ret_traj=False):
-        batch_size = context.size(0)
-        x_T = torch.randn([batch_size, num_points, point_dim]).to(context.device)
-        traj = {self.var_sched.num_steps: x_T}
-        for t in range(self.var_sched.num_steps, 0, -1):
-            z = torch.randn_like(x_T) if t > 1 else torch.zeros_like(x_T)
-            alpha = self.var_sched.alphas[t]
-            alpha_bar = self.var_sched.alpha_bars[t]
-            sigma = self.var_sched.get_sigmas(t, flexibility)
-
-            c0 = 1.0 / torch.sqrt(alpha)
-            c1 = (1 - alpha) / torch.sqrt(1 - alpha_bar)
-
-            x_t = traj[t]
-            beta = self.var_sched.betas[[t]*batch_size]
-            e_theta = self.net(x_t, beta=beta, context=context)
-            x_next = c0 * (x_t - c1 * e_theta) + sigma * z
-            traj[t-1] = x_next.detach()     # Stop gradient and save trajectory.
-            traj[t] = traj[t].cpu()         # Move previous output to CPU memory.
-            if not ret_traj:
-                del traj[t]
+        self.conv2 = Conv2d(out_dim, out_dim, 1)
+        self.bn2 = nn.BatchNorm2d(out_dim)
         
-        if ret_traj:
-            return traj
+        self.scale = nn.Linear(ctx_dim, out_dim, bias=False)
+        self.bias = nn.Linear(ctx_dim, out_dim)
+
+        if in_dim != out_dim:
+            self.res_proj = nn.Conv2d(in_dim, out_dim, 1)
         else:
-            return traj[0]
-
-
-
-    def sample_this(self, x_T, context, flexibility=0.0, ret_traj=False):
-        '''
-            This function was added to control the distribution of the input point cloud
-            to answer the question of how diffusion works if points were not sampled from
-            a normal distribution.
-        '''
-        batch_size = context.size(0)
-        traj = {self.var_sched.num_steps: x_T}
-        for t in range(self.var_sched.num_steps, 0, -1):
-            z = torch.randn_like(x_T) if t > 1 else torch.zeros_like(x_T)
-            alpha = self.var_sched.alphas[t]
-            alpha_bar = self.var_sched.alpha_bars[t]
-            sigma = self.var_sched.get_sigmas(t, flexibility)
-
-            c0 = 1.0 / torch.sqrt(alpha)
-            c1 = (1 - alpha) / torch.sqrt(1 - alpha_bar)
-
-            x_t = traj[t]
-            beta = self.var_sched.betas[[t]*batch_size]
-            e_theta = self.net(x_t, beta=beta, context=context)
-            x_next = c0 * (x_t - c1 * e_theta) + sigma * z
-            traj[t-1] = x_next.detach()     # Stop gradient and save trajectory.
-            traj[t] = traj[t].cpu()         # Move previous output to CPU memory.
-            if not ret_traj:
-                del traj[t]
+            self.res_proj = nn.Identity()
         
-        if ret_traj:
-            return traj
-        else:
-            return traj[0]
+        self.activ2 = nn.GELU()
+        
+    def forward(self, x, ctx):
+        r = self.conv1(x)
+        r = self.activ1(r)
+
+        r = self.conv2(r)
+        r = self.bn2(r)
+
+        s = self.scale(ctx)[:, :, None, None]
+        b = self.bias(ctx)[:, :, None, None]
+        r = r*s  + b
+        r = self.activ2(r)
+
+        r = r + self.res_proj(x)
+        return r
+
+
+class NocsDiff(Module):
+    def __init__(self, in_dim, ctx_encoder, in_plane=32):
+        super().__init__()
+        self.ctx_net = ctx_encoder
+        ctx_dim = self.ctx_net.out_dim
+        
+        self.img_proj = nn.Sequential(
+            nn.Conv2d(in_dim, in_plane, 7, 1, 3),
+            nn.BatchNorm2d(in_plane),
+            nn.GELU(),
+        )
+        self.img_net = nn.ModuleDict({
+            'l1' : FilmResLayer(in_plane, in_plane, ctx_dim),
+            'l2' : FilmResLayer(in_plane, in_plane, ctx_dim),
+            'l3' : FilmResLayer(in_plane, in_plane, ctx_dim),
+            'l4' : FilmResLayer(in_plane, in_dim,   ctx_dim),
+        })
+
+    def forward(self, x, ctx):
+        ctx = self.ctx_net(ctx)
+        x = self.img_proj(x)
+        for layer in self.img_net.values():
+            x = layer(x, ctx)
+        return x
+
+if __name__ == '__main__':
+    
+    depth = torch.rand(2, 1, 64,64)
+    img = torch.rand(2, 3, 64,64)
+    
+    ctx_net = CtxtEncoder(1, 64)
+    diffuser = NocsDiff(3, ctx_net)
+
+    dx = diffuser(img, depth)
+
+    pass
