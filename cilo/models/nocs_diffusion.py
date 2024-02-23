@@ -1,61 +1,41 @@
 import torch
 from torch import nn
-from torch.nn import Module, Identity, Conv2d
+from torch import Tensor
+from torch.nn import Module
+import torch.nn.functional as F
+
+from torch.nn import Conv2d
 from torchvision.models import resnet18
 from torchvision.transforms import Resize
 from torchvision.models.segmentation import deeplabv3_resnet50
 
-class CtxtEncoder(Module):
-    def __init__(self, in_dim, out_dim):
+from models.context_encoder import CtxtEncoder
+from models.scheduler import VarianceSchedule
+from models.film_layer import FilmResLayer
+
+from typing import Optional
+
+class ForwardDiffuser(nn.Module):
+    def __init__(self, var_sched:VarianceSchedule, mean:float=0.0):
         super().__init__()
-        self.in_dim, self.out_dim = in_dim, out_dim
-        self._net = resnet18()
-        self._net.conv1 = Conv2d(in_dim, 64, (7, 7), (2, 2), (3, 3), bias=False)
-        self._net.fc = nn.Linear(512, out_dim)
-
-    def forward(self, x):
-        return self._net(x)
-
-
-class FilmResLayer(nn.Module):
-    def __init__(self, in_dim, out_dim, ctx_dim):
+        self.var_sched = var_sched
+        self._mu = mean
+    def __call__(self, x:Tensor, noise:Optional[Tensor]=None, t:Optional[int]=None):  
+        if noise is None:
+            noise = torch.randn_like(x, device=x.device)
+        s, n = self.var_sched.sample(noise.shape[0], t)
+        s = s[:, None, None, None].to(x.device) 
+        n = n[:, None, None, None].to(x.device)
+        return x*s + (noise + self._mu)*n
+    
+class BackwardDiffuser(nn.Module):
+    def __init__(self, diffuser:nn.Module):
         super().__init__()
-
-        self.conv1 = Conv2d(in_dim, out_dim, 3, 1, 1)
-        self.activ1 = nn.GELU()
-
-        
-        self.conv2 = Conv2d(out_dim, out_dim, 1)
-        self.bn2 = nn.BatchNorm2d(out_dim)
-        
-        self.scale = nn.Linear(ctx_dim, out_dim, bias=False)
-        self.bias = nn.Linear(ctx_dim, out_dim)
-
-        if in_dim != out_dim:
-            self.res_proj = nn.Conv2d(in_dim, out_dim, 1)
-        else:
-            self.res_proj = nn.Identity()
-        
-        self.activ2 = nn.GELU()
-        
-    def forward(self, x, ctx):
-        r = self.conv1(x)
-        r = self.activ1(r)
-
-        r = self.conv2(r)
-        r = self.bn2(r)
-
-        s = self.scale(ctx)[:, :, None, None]
-        b = self.bias(ctx)[:, :, None, None]
-        r = r*s  + b
-        r = self.activ2(r)
-
-        r = r + self.res_proj(x)
-        return r
+        self._diff = diffuser
 
 
 class NocsDiff(Module):
-    def __init__(self, in_dim, ctx_encoder, in_plane=32):
+    def __init__(self, in_dim, ctx_encoder, in_plane, scheduler:VarianceSchedule, ):
         super().__init__()
         self.ctx_net = ctx_encoder
         ctx_dim = self.ctx_net.out_dim
@@ -71,6 +51,9 @@ class NocsDiff(Module):
             'l3' : FilmResLayer(in_plane, in_plane, ctx_dim),
             'l4' : FilmResLayer(in_plane, in_dim,   ctx_dim),
         })
+        self._scheduler = scheduler
+        self._fwd_diffuse = ForwardDiffuser(scheduler, mean=0.5)
+        self._noise = None
 
     def forward(self, x, ctx):
         ctx = self.ctx_net(ctx)
@@ -78,6 +61,25 @@ class NocsDiff(Module):
         for layer in self.img_net.values():
             x = layer(x, ctx)
         return x
+    
+    def fwd_diff(self, images:Tensor):
+        noise = torch.randn_like(images, device=images.device)
+        return self._fwd_diffuse(images, noise).clip(0.0, 1.0)
+
+    def fix(self, image:Tensor):
+        ...
+
+    def get_loss(self, images:Tensor, context:Tensor):
+        
+        if self._noise is None:
+            self._noise = torch.randn_like(images, device=images.device)
+        noise = self._noise
+        # noise = torch.randn_like(images, device=images.device)
+
+        pred_noise = self.forward(images, context)
+        loss = F.mse_loss(noise, pred_noise)
+        return loss
+
 
 if __name__ == '__main__':
     

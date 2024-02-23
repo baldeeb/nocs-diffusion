@@ -1,4 +1,4 @@
-from utils.diffusion import (VarianceSchedule, Diffuser)
+from utils.diffusion import (VarianceSchedule, ForwardDiffuser)
 from utils.nocs_renderer import RendererWrapper, sample_transforms, mask_from_depth
 from utils.visualization import viz_image_batch
 from utils.dataloader import PointCloudLoader
@@ -29,7 +29,7 @@ dataloader = PointCloudLoader(path='./data/shapenet.hdf5',
 
 # Setup Forward Diffusion
 var_sched = VarianceSchedule(beta_1, beta_max, steps)
-diffuse = Diffuser(var_sched, mean=0.5)
+diffuse = ForwardDiffuser(var_sched, mean=0.5)
 diffuse_clip = lambda *args: diffuse(*args).clip(0.0, 1.0)
 
 # Setup Renderer

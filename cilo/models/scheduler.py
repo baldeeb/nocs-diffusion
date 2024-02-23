@@ -22,22 +22,3 @@ class VarianceSchedule(nn.Module):
         if t is None:
             t = torch.randperm(self.steps.int().item())[:batch]
         return self.sample_ratios[t], self.noise_ratios[t]
-
-
-class ForwardDiffuser(nn.Module):
-    def __init__(self, var_sched:VarianceSchedule, mean:float=0.0):
-        super().__init__()
-        self.var_sched = var_sched
-        self._mu = mean
-    def __call__(self, x:Tensor, noise:Optional[Tensor]=None, t:Optional[int]=None):  
-        if noise is None:
-            noise = torch.randn_like(x, device=x.device)
-        s, n = self.var_sched.sample(noise.shape[0], t)
-        s = s[:, None, None, None].to(x.device) 
-        n = n[:, None, None, None].to(x.device)
-        return x*s + (noise + self._mu)*n
-    
-class BackwardDiffuser(nn.Module):
-    def __init__(self, diffuser:nn.Module):
-        super().__init__()
-        self._diff = diffuser
