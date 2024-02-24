@@ -35,7 +35,7 @@ class BackwardDiffuser(nn.Module):
 
 
 class NocsDiff(Module):
-    def __init__(self, in_dim, ctx_encoder, in_plane, scheduler:VarianceSchedule, ):
+    def __init__(self, in_dim, ctx_encoder, in_plane):
         super().__init__()
         self.ctx_net = ctx_encoder
         ctx_dim = self.ctx_net.out_dim
@@ -51,9 +51,6 @@ class NocsDiff(Module):
             'l3' : FilmResLayer(in_plane, in_plane, ctx_dim),
             'l4' : FilmResLayer(in_plane, in_dim,   ctx_dim),
         })
-        self._scheduler = scheduler
-        self._fwd_diffuse = ForwardDiffuser(scheduler, mean=0.5)
-        self._noise = None
 
     def forward(self, x, ctx):
         ctx = self.ctx_net(ctx)
@@ -61,21 +58,9 @@ class NocsDiff(Module):
         for layer in self.img_net.values():
             x = layer(x, ctx)
         return x
-    
-    def fwd_diff(self, images:Tensor):
-        noise = torch.randn_like(images, device=images.device)
-        return self._fwd_diffuse(images, noise).clip(0.0, 1.0)
-
-    def fix(self, image:Tensor):
-        ...
 
     def get_loss(self, images:Tensor, context:Tensor):
-        
-        if self._noise is None:
-            self._noise = torch.randn_like(images, device=images.device)
-        noise = self._noise
-        # noise = torch.randn_like(images, device=images.device)
-
+        noise = torch.randn_like(images, device=images.device)
         pred_noise = self.forward(images, context)
         loss = F.mse_loss(noise, pred_noise)
         return loss
