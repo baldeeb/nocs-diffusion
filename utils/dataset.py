@@ -42,7 +42,10 @@ class ShapeNetCore(Dataset):
         super().__init__()
         assert isinstance(cates, list), '`cates` must be a list of cate names.'
         assert split in ('train', 'val', 'test')
-        assert scale_mode is None or scale_mode in ('global_unit', 'shape_unit', 'shape_bbox', 'shape_half', 'shape_34')
+        assert scale_mode is None or scale_mode in ('global_unit', 'shape_unit', 
+                                                    'shape_bbox', 'shape_half', 
+                                                    'shape_34', 'nocs', 
+                                                    'centered_nocs', None)
         self.path = path
         if 'all' in cates:
             cates = cate_to_synsetid.keys()
@@ -116,9 +119,21 @@ class ShapeNetCore(Dataset):
                     pc_min, _ = pc.min(dim=0, keepdim=True) # (1, 3)
                     shift = ((pc_min + pc_max) / 2).view(1, 3)
                     scale = (pc_max - pc_min).max().reshape(1, 1) / 2
-                else:
+                elif self.scale_mode == 'nocs':
+                    pc_max, _ = pc.max(dim=0, keepdim=True) # (1, 3)
+                    pc_min, _ = pc.min(dim=0, keepdim=True) # (1, 3)
+                    shift = pc_min.view(1, 3)
+                    scale = (pc_max - pc_min).norm(dim=-1).view(1,1)
+                elif self.scale_mode == 'centered_nocs':
+                    pc_max, _ = pc.max(dim=0, keepdim=True) # (1, 3)
+                    pc_min, _ = pc.min(dim=0, keepdim=True) # (1, 3)
+                    shift = ((pc_min + pc_max) / 2).view(1, 3)
+                    scale = (pc_max - pc_min).norm(dim=-1).view(1,1)
+                elif self.scale_mode == None:
                     shift = torch.zeros([1, 3])
                     scale = torch.ones([1, 1])
+                else:
+                    raise RuntimeError('Unexpected scale_mode...')
 
                 pc = (pc - shift) / scale
 
