@@ -19,7 +19,7 @@ def rands_in_range(range, count):
     return rand * (range[1] - range[0]) + range[0]
 
 def sample_transforms(num_vars, 
-                      dist_range=[0.8, 1.5],  
+                      dist_range=[0.6, 1.0],  
                       elev_range=[0, 360],  
                       azim_range=[0, 360],
                       device='cuda'):
@@ -101,7 +101,7 @@ class RendererWrapper(nn.Module):
         )
         renderer = PointRgbdRenderer(
             rasterizer=rasterizer,
-            compositor=AlphaCompositor()
+            compositor=AlphaCompositor(background_color=[1.0,1.0,1.0]),
         )
         return renderer
 
