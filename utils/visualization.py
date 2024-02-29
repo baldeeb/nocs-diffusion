@@ -9,13 +9,14 @@ def visualize_point_cloud(points, colors=None, show=True):
     if show: plt.show()
 
 
-def viz_image_batch(images):
+def viz_image_batch(images, block=True, title=None):
     B = images.shape[0]
-    cols = int(np.floor(np.sqrt(B)))
-    rows  = int(np.ceil(B / cols))
+    rows = int(np.floor(np.sqrt(B)))
+    cols  = int(np.ceil(B / rows))
     fig, axs = plt.subplots(rows, cols)
     for i in range(B):
         r, c = i // cols, i % cols
         axs[r][c].imshow(images[i])
-    plt.show()
+    plt.show(block=block)
+    if title is not None: fig.suptitle(title)
     return fig

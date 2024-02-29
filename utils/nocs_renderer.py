@@ -9,9 +9,15 @@ from pytorch3d.renderer import PointsRasterizer
 from pytorch3d.renderer import PointsRenderer
 from pytorch3d.renderer import AlphaCompositor
 
-def mask_from_depth(depth_ims):
-    masks = torch.zeros_like(depth_ims)
-    masks[depth_ims!=-1] = 1
+from pytorch3d.ops import estimate_pointcloud_normals
+
+def mask_from_depth(depth_ims, inverse=False):
+    if inverse:
+        masks = torch.ones_like(depth_ims)
+        masks[depth_ims!=-1] = 0
+    else:
+        masks = torch.zeros_like(depth_ims)
+        masks[depth_ims!=-1] = 1
     return masks
 
 def rands_in_range(range, count):
@@ -37,7 +43,7 @@ class PointRgbdRenderer(PointsRenderer):
 
 
     def forward(self, point_clouds, **kwargs) -> torch.Tensor:
-        # TODO: Cite the orihinal implementation
+        # TODO: Cite the original implementation
         fragments = self.rasterizer(point_clouds, **kwargs)
 
         # Construct weights based on the distance of a point to the true point.
@@ -87,7 +93,7 @@ class RendererWrapper(nn.Module):
         self._elev_range = elev_range
         self._azim_range = azim_range
 
-    def _get_renderer(self,Rs, Ts, device):
+    def _get_renderer(self, feat_size, Rs, Ts, device):
         cameras = FoVPerspectiveCameras(
             device=device, 
             aspect_ratio=self._aspect_ratio,
@@ -101,7 +107,7 @@ class RendererWrapper(nn.Module):
         )
         renderer = PointRgbdRenderer(
             rasterizer=rasterizer,
-            compositor=AlphaCompositor(background_color=[1.0,1.0,1.0]),
+            compositor=AlphaCompositor(background_color=torch.ones(feat_size)),
         )
         return renderer
 
@@ -109,7 +115,7 @@ class RendererWrapper(nn.Module):
         return sample_transforms(n, self._dist_range, self._elev_range, 
                                  self._azim_range,)
 
-    def __call__(self, verts, feat, num_variations=None, Rs=None, Ts=None):
+    def __call__(self, verts, feat, normals=None, num_variations=None, Rs=None, Ts=None):
         '''
         This function currently is intended to render a single cloud from varied views within a range.
         Args:
@@ -125,7 +131,17 @@ class RendererWrapper(nn.Module):
             num_variations = len(Rs)
         else: assert False, "Either num_variations or bot Rs & Ts should be set."
 
+        if normals is not None:
+            feat = torch.concatenate([feat, normals], dim=-1)
+
+        # TODO: IMPORTANT! Remove repeats somehow
         pts = Pointclouds(points=verts.repeat(num_variations, 1, 1), 
-                          features=feat.repeat(num_variations, 1, 1))
-        render = self._get_renderer(Rs, Ts, pts.device)
-        return render(pts)
+                          features=feat.repeat(num_variations, 1, 1),)
+        render = self._get_renderer(feat.shape[-1], Rs, Ts, pts.device)
+        result = render(pts)
+        
+        if normals is not None:
+            result['normals'] = result['images'][:, :, :, -3:]
+            result['images'] = result['images'][:, :, :, :-3]
+        
+        return result
