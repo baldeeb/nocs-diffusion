@@ -1,0 +1,36 @@
+
+log: true                 # Whether to push logs to wandb
+log_locally: true
+logger:
+  project: nocs-diffusion
+  entity:  rpm-collab
+  name:    depth_vae
+
+checkpoint_dir: ./checkpoints/${logger.project}/${logger.name}/${now:%Y-%m-%d_%H-%M-%S}
+retain_n_checkpoints: 2   # Checkpoints to retain
+hydra:
+    run:
+        dir: ${checkpoint_dir}
+
+
+device: cuda:0
+
+# Training
+num_epochs: 1000          # Epochs to train for
+steps_before_save: 1000  # Batches before saving a checkpoint
+steps_before_eval: 100   # Batches before evaluating
+num_eval_batches: 5       # Batches to evaluate on
+
+# Models
+depth_latent_size: 1028
+
+# Data
+num_objects: 2
+
+# Augmentation
+image_size: 32
+num_views: 128
+
+# Optimizer
+lr: 1e-3
+lr_warmup_steps: 50
