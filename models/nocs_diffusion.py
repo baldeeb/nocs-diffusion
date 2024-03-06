@@ -40,8 +40,13 @@ class NocsDiff(Module):
         self.ctx_net = ctx_encoder
         ctx_dim = self.ctx_net.out_dim
         
+        # self.img_proj = nn.Sequential(
+        #     nn.Conv2d(in_dim, in_plane, 7, 1, 3),
+        #     nn.BatchNorm2d(in_plane),
+        #     nn.GELU(),
+        # )
         self.img_proj = nn.Sequential(
-            nn.Conv2d(in_dim, in_plane, 7, 1, 3),
+            nn.Conv2d(in_dim, in_plane, 1, 1, 0),
             nn.BatchNorm2d(in_plane),
             nn.GELU(),
         )
@@ -51,9 +56,16 @@ class NocsDiff(Module):
             'l3' : FilmResLayer(in_plane, in_plane, ctx_dim),
             'l4' : FilmResLayer(in_plane, in_dim,   ctx_dim),
         })
+        self.temp_ctxt = None
 
     def forward(self, x, ctx):
-        ctx = self.ctx_net(ctx)
+        
+        # TESTING: Temporarily I am using the same image so depth does not vary.
+        if self.temp_ctxt is None:
+            self.temp_ctxt = torch.randn((x.shape[0], self.ctx_net.out_dim), device=x.device)
+        ctx = self.temp_ctxt
+
+        # ctx = self.ctx_net(ctx)
         x = self.img_proj(x)
         for layer in self.img_net.values():
             x = layer(x, ctx)
