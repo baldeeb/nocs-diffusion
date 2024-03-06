@@ -140,11 +140,12 @@ class RendererWrapper(nn.Module):
         return sample_transforms(n, self._dist_range, self._elev_range, 
                                  self._azim_range,)
 
-    def __call__(self, verts, feat, normals=None, num_variations=None, Rs=None, Ts=None):
+    def __call__(self, verts, feats, normals=None, num_variations=None, Rs=None, Ts=None):
         '''
         This function currently is intended to render a single cloud from varied views within a range.
         Args:
-            Verts, feats: [B x N x {3, F}]
+            Verts, feats: [{None , B} x N x {3, F}]
+            normals
         Return:
             number of rendered images & depth images
         '''
@@ -156,13 +157,18 @@ class RendererWrapper(nn.Module):
             num_variations = len(Rs)
         else: assert False, "Either num_variations or bot Rs & Ts should be set."
 
+        if verts.ndim == 2:  # if a single object is givens
+            verts = verts.expand(num_variations, -1, -1)
+            feats = feats.expand(num_variations, -1, -1)
+            if normals: 
+                normals = normals.expand(num_variations, -1, -1)
+        
         if normals is not None:
-            feat = torch.concatenate([feat, normals], dim=-1)
+            feats = torch.concatenate([feats, normals], dim=-1)
 
-        # TODO: IMPORTANT! Remove repeats somehow
-        pts = Pointclouds(points=verts.repeat(num_variations, 1, 1), 
-                          features=feat.repeat(num_variations, 1, 1),)
-        render = self._get_renderer(feat.shape[-1], Rs, Ts, pts.device)
+        pts = Pointclouds(points=verts, features=feats,)
+        feature_dim = feats.shape[-1]
+        render = self._get_renderer(feature_dim, Rs, Ts, pts.device)
         result = render(pts)
         
         if normals is not None:

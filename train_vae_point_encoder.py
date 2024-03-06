@@ -3,11 +3,11 @@ import torch.nn.functional as F
 
 from pytorch3d.ops import estimate_pointcloud_normals
 
-from utils.renderer import RendererWrapper, sample_transforms, mask_from_depth
-from utils.dataloader import PointCloudLoader
+from dataset.renderer import RendererWrapper, sample_transforms, mask_from_depth
+from dataset.dataloader import PointCloudLoader
 from utils.visualization import viz_image_batch
 
-from utils.nocs_generator import nocs_extractor
+from dataset.nocs_tools import nocs_extractor
 
 from diffusers.optimization import get_cosine_schedule_with_warmup
 

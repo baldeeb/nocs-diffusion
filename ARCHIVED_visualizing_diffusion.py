@@ -4,9 +4,9 @@ can we retrieve rotation, translation, and scale of that
 object from the observed points
 '''
 
-from utils.dataset import *
+from dataset.shapenet import *
 from utils.misc import *
-from utils.data import *
+from dataset.data import *
 
 from utils.data_augmentation import CollateFunctor
 

@@ -3,9 +3,7 @@ import random
 from copy import copy
 import torch
 from torch.utils.data import Dataset
-import numpy as np
 import h5py
-from tqdm.auto import tqdm
 
 
 synsetid_to_cate = {

@@ -4,9 +4,9 @@ import torch.nn.functional as F
 from models.nocs_diffusion import NocsDiff, CtxtEncoder
 
 from models.scheduler import VarianceSchedule
-from utils.renderer import RendererWrapper, sample_transforms, mask_from_depth
-from utils.dataloader import PointCloudLoader
-from utils.nocs_generator import nocs_extractor
+from dataset.renderer import RendererWrapper, sample_transforms, mask_from_depth
+from dataset.dataloader import PointCloudLoader
+from dataset.nocs_tools import nocs_extractor
 from utils.visualization import viz_image_batch
 
 
