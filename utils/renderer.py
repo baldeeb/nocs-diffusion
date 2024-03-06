@@ -65,15 +65,25 @@ class PointRgbdRenderer(PointsRenderer):
         images = images.permute(0, 2, 3, 1)
         depths = fragments.zbuf[:,:,:, :1]
 
-        return {'images':images, 'depths': depths,}
+        # package points visible in render
+        face_pts = []
+        points_packed = point_clouds.points_packed()
+        B = indices.shape[0]
+        for i in range(B):
+            face_idxs = indices[i].view(-1)
+            face_pts.append(points_packed[face_idxs])
+
+        return {'images':images, 
+                'depths': depths, 
+                'face_points':face_pts}
 
 
 class RendererWrapper(nn.Module):
     '''Wraps Camera, Rasteraizer, and Renderer'''
     def __init__(self,
                  image_size=64,
-                 pt_radius=0.04,
-                 pts_per_pxl=4,
+                 pt_radius=0.05,
+                 pts_per_pxl=1,
                  aspect_ratio=torch.tensor(1.0),
                  cam_fov=torch.tensor(60),
                  znear=0.01,
@@ -84,6 +94,7 @@ class RendererWrapper(nn.Module):
         self._aspect_ratio = aspect_ratio
         self._fov = cam_fov
         self._znear = znear
+        self._image_size = image_size
         self.raster_settings = PointsRasterizationSettings(
             image_size=image_size,
             radius=pt_radius,
@@ -92,6 +103,20 @@ class RendererWrapper(nn.Module):
         self._dist_range = dist_range
         self._elev_range = elev_range
         self._azim_range = azim_range
+
+    # def get_intrinsic():
+    #     tan_fov_over_2 = torch.tan(torch.deg2rad(self._fov) /  2)
+    #     two_W_over_f = 2*tan_fov_over_2
+    #     f = self._image_size /  two_W_over_f
+    #     W = self._image_size
+    #     H = self._image_size / self._aspect_ratio
+
+    #     m = torch.eye(3)
+    #     m[0, 0] = m[1,1] = f
+    #     m[0, -1] = W / 2
+    #     m[1, -1] = H / 2
+    #     return m
+
 
     def _get_renderer(self, feat_size, Rs, Ts, device):
         cameras = FoVPerspectiveCameras(

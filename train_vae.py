@@ -3,7 +3,7 @@ import torch.nn.functional as F
 
 from pytorch3d.ops import estimate_pointcloud_normals
 
-from utils.nocs_renderer import RendererWrapper, sample_transforms, mask_from_depth
+from utils.renderer import RendererWrapper, sample_transforms, mask_from_depth
 from utils.dataloader import PointCloudLoader
 from utils.visualization import viz_image_batch
 
@@ -24,9 +24,6 @@ from utils.load_save import save_model
 import os
 
 def train(config):
-
-    if config.log_locally:
-        os.environ["WANDB_MODE"] = "offline"
 
 
     def add_noise(x, mu=0, std=0.005):
@@ -50,7 +47,7 @@ def train(config):
                         )
     render = RendererWrapper(image_size=config.image_size)
     
-    channel_size = 2
+    channel_size = 1
     input_shape = (channel_size, config.image_size, config.image_size)
     model = VAEConvNet(input_shape, config.depth_latent_size).to(config.device)
     
@@ -75,11 +72,13 @@ def train(config):
         log({'step': batch_i+1})
 
         Rs, Ts = sample_transforms(config.num_views, elev_range=[0, 70])
-        renders = render(pts, feats, normals=normals, Rs=Rs, Ts=Ts)
+        renders = render(pts, feats, 
+                        #  normals=normals, # Renders normals if included
+                         Rs=Rs, Ts=Ts)
         
         x = renders['depths'].permute(0, 3, 1, 2).to(config.device)
-        masks = mask_from_depth(x, inverse=True)
-        x = torch.concatenate([x, masks], dim=1)
+        # masks = mask_from_depth(x, inverse=True)
+        # x = torch.concatenate([x, masks], dim=1)
         
         x_hat, z_mu, z_log_std = model(x)
         loss = vae_loss(x, x_hat, z_mu, z_log_std)
@@ -100,9 +99,7 @@ def train(config):
 
                 
     as_np = lambda x: (x/2 + 0.5).permute(0,2,3,1).detach().cpu().numpy()
-    if x.shape[1] == 2:
-        x = x[:, 0:1]
-        x_hat = x_hat[:, 0:1]
+    # if x.shape[1] == 2: x, x_hat = x[:, 0:1], x_hat[:, 0:1]
     viz_image_batch(as_np(x), block=False, title='Original')
     viz_image_batch(as_np(x_hat), title='Reconstructed')
     pass
@@ -110,10 +107,9 @@ def train(config):
 
 @hydra.main(version_base=None, config_path='./config', config_name='depth_vae')
 def run(cfg: DictConfig) -> None:
+    if cfg.log_locally:
+        os.environ["WANDB_MODE"] = "offline"
     train(cfg)
-
-
-
 
 if __name__ == '__main__':
     run()

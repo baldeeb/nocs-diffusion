@@ -1,5 +1,5 @@
 from utils.diffusion import (VarianceSchedule, ForwardDiffuser)
-from utils.nocs_renderer import RendererWrapper, sample_transforms, mask_from_depth
+from utils.renderer import RendererWrapper, sample_transforms, mask_from_depth
 from utils.visualization import viz_image_batch
 from utils.dataloader import PointCloudLoader
 from utils.nocs_generator import nocs_extractor

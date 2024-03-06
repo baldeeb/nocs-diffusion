@@ -1,4 +1,4 @@
-from utils.nocs_renderer import RendererWrapper
+from utils.renderer import RendererWrapper
 import torch
 
 def shift_half_unit(x:torch.Tensor):

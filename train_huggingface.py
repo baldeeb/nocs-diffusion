@@ -5,7 +5,7 @@ from models.nocs_diffusion import NocsDiff, CtxtEncoder
 from models.scheduler import VarianceSchedule
 from models.unets import get_unet
 
-from utils.nocs_renderer import RendererWrapper, sample_transforms, mask_from_depth
+from utils.renderer import RendererWrapper, sample_transforms, mask_from_depth
 from utils.dataloader import PointCloudLoader
 from utils.nocs_generator import nocs_extractor
 from utils.visualization import viz_image_batch
@@ -15,37 +15,17 @@ from diffusers import DDPMScheduler
 
 from torchvision import transforms
 
-def train():
+def train(config):
 
     def add_noise(x, mu=0, std=0.005):
         return x + torch.randn(x.shape, device=x.device) * std + mu
-
-    ######## Configs ############
-    class Config:
-        device = 'cuda'
-
-        # Augmentation
-        image_size=32
-        num_views = 16
-        
-        # Training
-        batch_size = 2
-        lr = 1e-4
-        lr_warmup_steps = 50
-        num_epochs = 10000
-        num_train_timesteps = 1000
-
-        def as_dict(self,):
-            return dict((name, getattr(self, name)) for name in dir(self) if not name.startswith('__')) 
-    config = Config()
-    #############################
 
     # Setup Dataset
     dataloader = PointCloudLoader(
                             path='./data/shapenet.hdf5',
                             categories=['chair'],
                             split='test',
-                            batch_size=config.batch_size,
+                            batch_size=config.num_objects,
                             shuffle=False,
                             device=config.device, 
                             post_process=add_noise
@@ -136,4 +116,13 @@ def train():
     
     viz_image_batch(as_np(img), title='Fixed')
     pass
-train()
+
+
+@hydra.main(version_base=None, config_path='./config', config_name='diffuser')
+def run(cfg: DictConfig) -> None:
+    if cfg.log_locally:
+        os.environ["WANDB_MODE"] = "offline"
+    train(cfg)
+
+if __name__ == '__main__':
+    run()

@@ -4,7 +4,7 @@ log_locally: true
 logger:
   project: nocs-diffusion
   entity:  rpm-collab
-  name:    depth_vae
+  name:    diffuser
 
 checkpoint_dir: ./checkpoints/${logger.project}/${logger.name}/${now:%Y-%m-%d_%H-%M-%S}
 retain_n_checkpoints: 2   # Checkpoints to retain
@@ -16,7 +16,7 @@ hydra:
 device: cuda:0
 
 # Training
-num_epochs: 10000          # Epochs to train for
+num_epochs: 1000          # Epochs to train for
 steps_before_save: 1000  # Batches before saving a checkpoint
 steps_before_eval: 100   # Batches before evaluating
 num_eval_batches: 5       # Batches to evaluate on
@@ -32,5 +32,6 @@ image_size: 32
 num_views: 18
 
 # Optimizer
-lr: 1e-3
+lr: 1e-4
 lr_warmup_steps: 50
+
