@@ -15,6 +15,15 @@ from diffusers import DDPMScheduler
 
 from torchvision import transforms
 
+
+from omegaconf import DictConfig, OmegaConf
+from tqdm import tqdm
+import pathlib as pl
+import wandb
+import hydra
+import os
+
+
 def train(config):
 
     def add_noise(x, mu=0, std=0.005):
@@ -39,7 +48,7 @@ def train(config):
     
     
     # model = NocsDiff(3, ctx_net, 64).to(config.device)  # MY OWN
-    model = get_unet(config.as_dict())
+    model = get_unet(OmegaConf.to_object(config))
     model = model.to(config.device)
 
     render = RendererWrapper(image_size=config.image_size)

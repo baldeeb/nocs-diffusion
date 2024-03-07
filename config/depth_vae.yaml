@@ -24,12 +24,16 @@ num_eval_batches: 5       # Batches to evaluate on
 # Models
 depth_latent_size: 1028
 
-# Data
-num_objects: 2
-
-# Augmentation
-image_size: 32
-num_views: 18
+dataset:
+  path: './data/shapenet.hdf5'
+  categories: ['chair']
+  split: test
+  image_size: 32
+  shuffle: true     # whether to shuffle when choosing objects
+  num_objects: 18   # count of objects to use
+  num_views: 18     # count of poses from which to view object
+  scale_mode: 
+  device: ${device}
 
 # Optimizer
 lr: 1e-3

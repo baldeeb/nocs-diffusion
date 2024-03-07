@@ -16,13 +16,14 @@ hydra:
 device: cuda:0
 
 # Training
-num_epochs: 1000          # Epochs to train for
+num_epochs: 10000        # Epochs to train for
 steps_before_save: 1000  # Batches before saving a checkpoint
 steps_before_eval: 100   # Batches before evaluating
-num_eval_batches: 5       # Batches to evaluate on
+num_eval_batches: 5      # Batches to evaluate on
 
 # Models
 depth_latent_size: 1028
+num_train_timesteps: 1000
 
 # Data
 num_objects: 2

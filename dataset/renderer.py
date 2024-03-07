@@ -11,31 +11,7 @@ from pytorch3d.renderer import AlphaCompositor
 
 from pytorch3d.ops import estimate_pointcloud_normals
 
-def mask_from_depth(depth_ims, inverse=False):
-    if inverse:
-        masks = torch.ones_like(depth_ims)
-        masks[depth_ims!=-1] = 0
-    else:
-        masks = torch.zeros_like(depth_ims)
-        masks[depth_ims!=-1] = 1
-    return masks
-
-def rands_in_range(range, count):
-    rand = torch.rand(count)
-    return rand * (range[1] - range[0]) + range[0]
-
-def sample_transforms(num_vars, 
-                      dist_range=[0.6, 1.0],  
-                      elev_range=[0, 360],  
-                      azim_range=[0, 360],
-                      device='cuda'):
-    Rs, Ts = look_at_view_transform(
-        rands_in_range(dist_range, num_vars),
-        rands_in_range(elev_range, num_vars),
-        rands_in_range(azim_range, num_vars),
-        device=device
-    )
-    return Rs, Ts
+from .renderer_tools import sample_transforms, mask_from_depth
 
 class PointRgbdRenderer(PointsRenderer):
     def __init__(self, *args, **kwargs):
@@ -103,20 +79,6 @@ class RendererWrapper(nn.Module):
         self._dist_range = dist_range
         self._elev_range = elev_range
         self._azim_range = azim_range
-
-    # def get_intrinsic():
-    #     tan_fov_over_2 = torch.tan(torch.deg2rad(self._fov) /  2)
-    #     two_W_over_f = 2*tan_fov_over_2
-    #     f = self._image_size /  two_W_over_f
-    #     W = self._image_size
-    #     H = self._image_size / self._aspect_ratio
-
-    #     m = torch.eye(3)
-    #     m[0, 0] = m[1,1] = f
-    #     m[0, -1] = W / 2
-    #     m[1, -1] = H / 2
-    #     return m
-
 
     def _get_renderer(self, feat_size, Rs, Ts, device):
         cameras = FoVPerspectiveCameras(

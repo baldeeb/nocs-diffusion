@@ -4,7 +4,7 @@ from copy import copy
 import torch
 from torch.utils.data import Dataset
 import h5py
-
+from typing import Iterable
 
 synsetid_to_cate = {
     '02691156': 'airplane', '02773838': 'bag', '02801938': 'basket',
@@ -38,7 +38,7 @@ class ShapeNetCore(Dataset):
     
     def __init__(self, path, cates, split, scale_mode, transform=None):
         super().__init__()
-        assert isinstance(cates, list), '`cates` must be a list of cate names.'
+        assert isinstance(cates, Iterable), '`cates` must be a list of cate names.'
         assert split in ('train', 'val', 'test')
         assert scale_mode is None or scale_mode in ('global_unit', 'shape_unit', 
                                                     'shape_bbox', 'shape_half', 
