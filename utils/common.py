@@ -22,8 +22,8 @@ def train(config, model, optimizer, lr_scheduler, dataloader):
     for batch_i in batch_tqdm:
         log({'step': batch_i+1})
 
-        x, y = dataloader()
-        loss = model.loss(x, y)
+        data = dataloader()
+        loss = model.loss(data['face_points'], data['masks'])  # TODO: remove this train fx or make loss fx more versatile.
         log(loss)
         
         optimizer.zero_grad()

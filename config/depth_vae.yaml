@@ -1,19 +1,9 @@
+defaults:
+  - base
+  - _self_
 
-log: true                 # Whether to push logs to wandb
-log_locally: true
 logger:
-  project: nocs-diffusion
-  entity:  rpm-collab
   name:    depth_vae
-
-checkpoint_dir: ./checkpoints/${logger.project}/${logger.name}/${now:%Y-%m-%d_%H-%M-%S}
-retain_n_checkpoints: 2   # Checkpoints to retain
-hydra:
-    run:
-        dir: ${checkpoint_dir}
-
-
-device: cuda:0
 
 # Training
 num_epochs: 10000          # Epochs to train for
@@ -23,17 +13,6 @@ num_eval_batches: 5       # Batches to evaluate on
 
 # Models
 depth_latent_size: 1028
-
-dataset:
-  path: './data/shapenet.hdf5'
-  categories: ['chair']
-  split: test
-  image_size: 32
-  shuffle: true     # whether to shuffle when choosing objects
-  num_objects: 18   # count of objects to use
-  num_views: 18     # count of poses from which to view object
-  scale_mode: 
-  device: ${device}
 
 # Optimizer
 lr: 1e-3

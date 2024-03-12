@@ -1,0 +1,43 @@
+
+log: true                 # Whether to push logs to wandb
+log_locally: true
+logger:
+  project: nocs-diffusion
+  entity:  rpm-collab
+  name:    base
+
+checkpoint_dir: ./checkpoints/${logger.project}/${logger.name}/${now:%Y-%m-%d_%H-%M-%S}
+retain_n_checkpoints: 2   # Checkpoints to retain
+hydra:
+    run:
+        dir: ${checkpoint_dir}
+
+device: cuda:0
+
+# Data
+image_size: 32
+dataloader:
+  _target_: dataset.ShapeNetDataloader
+  renderer:
+    _target_: dataset.ShapeNetRenderer.build
+    path: './data/shapenet.hdf5'
+    categories: ['mug']
+    split: test
+    num_objects: 18   # count of objects to use
+    batch_size: 18     # count of poses from which to view object
+    image_size: ${image_size}
+    shuffle: true     # whether to shuffle when choosing objects
+    scale_mode: 
+    post_process:
+      _target_: hydra.utils.get_method 
+      path: dataset.add_gaussian_noise
+  return_dict:
+    - face_points
+    - masks
+    - images
+  augment_face_points:
+    _target_: dataset.RandSe3Noise
+    dist_range: [-0.2, 0.2]
+    elev_range: [0,    70 ]
+    azim_range: [0,    360]
+  points_per_render: 1000

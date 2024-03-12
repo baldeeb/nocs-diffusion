@@ -54,3 +54,20 @@ def sample_transforms(num_vars,
         device=device
     )
     return Rs, Ts
+
+class RandSe3Noise:
+    def __init__(self, 
+                dist_range = [-0.2, 0.2],
+                elev_range = [0,    70],
+                azim_range = [0,    360],):
+        self.dist_range = dist_range
+        self.elev_range = elev_range
+        self.azim_range = azim_range
+    
+    def __call__(self, d):
+        Rs, Ts = sample_transforms(d.shape[0],
+                                   self.dist_range,
+                                   self.elev_range,
+                                   self.azim_range,
+                                    device=d.device)
+        return torch.einsum('ijk,ilk->ijl',d, Rs) + Ts[:, None]

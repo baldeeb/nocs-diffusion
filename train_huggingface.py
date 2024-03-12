@@ -27,46 +27,19 @@ def get_depth_encoder(cfg, load_path):
         model = VAEPointNetEncoder(in_dim=3,
                                    latent_dim=cfg.depth_latent_size,
                                    out_dim=1,
-                                   im_size=cfg.dataset.image_size,
+                                   im_size=cfg.image_size,
                                 ).to(cfg.device)
         model.load_state_dict(torch.load(load_path))
-        
-        class encoder:
-            def __init__(self, enc):
-                self.enc = enc
-            def __call__(self, *args, **kwargs):
-                return model.encoder(*args, **kwargs)[0]
+        model.encoder.mean_only = True
+        return model.encoder
 
-        return encoder(model.encoder)
-
-def train(config):
-
-    renderer = hydra.utils.instantiate(config.dataset)
-
-    # Setup Forward Diffusion
-    scheduler = DDPMScheduler()
-    ctxt_encoder = get_depth_encoder(config, 
-        '/home/baldeeb/Code/nocs-diffusion/checkpoints/nocs-diffusion/depth_vae/2024-03-07_17-49-55/0000_009999.pth')
-    
-    cfg_dict = OmegaConf.to_object(config)
-    # model = NocsDiff(3, ctx_net, 64).to(config.device)  # MY OWN
-    # model = get_unet(cfg_dict).to(config.device)
-    model = get_conditioned_unet(cfg_dict).to(config.device)
-    
-    optimizer = torch.optim.AdamW(model.parameters(), lr=config.lr)
-    lr_scheduler = get_cosine_schedule_with_warmup(
-        optimizer=optimizer,
-        num_warmup_steps=config.lr_warmup_steps,
-        num_training_steps=(config.num_epochs),
-    )
-    scheduler.set_timesteps(config.num_train_timesteps)
+def train(config, model, ctxt_encoder, scheduler, optimizer, lr_scheduler, dataloader):
+   
 
     for epoch in range(config.num_epochs):
 
-        renders = renderer()
-        images = renders['images'].permute(0, 3, 1, 2).to(config.device)
-        pts = sample_from_clouds(renders['face_points'], 1000).to(config.device)
-
+        data = dataloader()
+        images, pts = data['images'], data['face_points']
 
 
         # forward diffusion
@@ -74,16 +47,10 @@ def train(config):
                                 device=config.device, dtype=torch.int64)
         noise = torch.randn_like(images)
         noised_images = scheduler.add_noise(images, noise, timesteps)
-        # viz_image_batch(noised_images.permute(0,2,3,1).detach().cpu().numpy())
 
         # pred_noise = model(noised_images, depths)  # MY OWN
-
         # pred_noise = model(noised_images, timesteps).sample  # Unconditioned UNET
-        
-
-        # TODO: still has some shape issue....
-        ctxt = ctxt_encoder(pts)[:, None]
-        # ctxt = torch.zeros(18, 1, 1028).to(config.device)
+        ctxt = ctxt_encoder(pts)[0][:, None]
         pred_noise = model(noised_images, timesteps, ctxt).sample  # Conditioned UNET
         
         loss = F.mse_loss(noise, pred_noise)
@@ -122,7 +89,29 @@ def run(cfg: DictConfig) -> None:
 
     if cfg.log_locally:
         os.environ["WANDB_MODE"] = "offline"
-    train(cfg)
+    
+    dataloader = hydra.utils.instantiate(cfg.dataloader).to(cfg.device)
+
+    # Setup Forward Diffusion
+    scheduler = DDPMScheduler()
+    ctxt_encoder = get_depth_encoder(cfg, 
+        '/home/baldeeb/Code/nocs-diffusion/checkpoints/nocs-diffusion/depth_vae/2024-03-07_17-49-55/0000_009999.pth')
+    
+    cfg_dict = OmegaConf.to_object(cfg)
+    # model = NocsDiff(3, ctx_net, 64).to(config.device)  # MY OWN
+    # model = get_unet(cfg_dict).to(config.device)
+    model = get_conditioned_unet(cfg_dict).to(cfg.device)
+    
+    optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.lr)
+    lr_scheduler = get_cosine_schedule_with_warmup(
+        optimizer=optimizer,
+        num_warmup_steps=cfg.lr_warmup_steps,
+        num_training_steps=(cfg.num_epochs),
+    )
+    scheduler.set_timesteps(cfg.num_train_timesteps)
+    
+    
+    train(cfg, model, ctxt_encoder, scheduler, optimizer, lr_scheduler, dataloader)
 
 if __name__ == '__main__':
     run()
