@@ -24,15 +24,27 @@ num_eval_batches: 5      # Batches to evaluate on
 # Models
 depth_latent_size: 1028
 num_train_timesteps: 1000
-
-# Data
-num_objects: 2
-
-# Augmentation
-image_size: 32
-num_views: 18
+cross_attention_dim: ${depth_latent_size}
 
 # Optimizer
 lr: 1e-4
 lr_warmup_steps: 50
 
+image_size: 32
+
+
+# Data
+dataset:
+  _target_: dataset.ShapeNetRenderer.build
+  path: './data/shapenet.hdf5'
+  categories: ['chair']
+  split: test
+  num_objects: 18   # count of objects to use
+  batch_size: 18     # count of poses from which to view object
+  image_size: ${image_size}
+  shuffle: true     # whether to shuffle when choosing objects
+  device: ${device}
+  scale_mode: 
+  post_process:
+    _target_: hydra.utils.get_method 
+    path: dataset.renderer_tools.add_gaussian_noise

@@ -5,3 +5,4 @@ pretrained
 checkpoints
 .env
 .scratch
+.archive

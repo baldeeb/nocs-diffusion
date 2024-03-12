@@ -4,7 +4,8 @@ from diffusers import UNet2DModel, UNet2DConditionModel
 UNET_DEFAULTS = {
     'block_out_channels': (128, 128, 128), # the number of output channels for each UNet block
     'down_block_types': ("DownBlock2D", "DownBlock2D", "DownBlock2D",), # regular ResNet downsampling block
-    'up_block_types': ("UpBlock2D", "UpBlock2D", "UpBlock2D",) # regular ResNet upsampling block
+    'up_block_types': ("UpBlock2D", "UpBlock2D", "UpBlock2D",), # regular ResNet upsampling block
+    'cross_attention_dim': 1280,
 }
 CONDITIONED_UNET_DEFAULTS = UNET_DEFAULTS
 
@@ -35,7 +36,8 @@ def get_conditioned_unet(cfg):
         layers_per_block=1,
         block_out_channels=cfg['block_out_channels'],  
         down_block_types=cfg['down_block_types'],
-        up_block_types=cfg['up_block_types']
+        up_block_types=cfg['up_block_types'],
+        cross_attention_dim=cfg['cross_attention_dim']
     )
 
 
