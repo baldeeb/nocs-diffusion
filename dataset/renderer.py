@@ -46,7 +46,7 @@ class PointRgbdRenderer(PointsRenderer):
         points_packed = point_clouds.points_packed()
         B = indices.shape[0]
         for i in range(B):
-            face_idxs = indices[i].view(-1)
+            face_idxs = indices[i].contiguous().view(-1)
             face_pts.append(points_packed[face_idxs])
 
         return {'images':images, 
@@ -59,7 +59,7 @@ class RendererWrapper(nn.Module):
     def __init__(self,
                  image_size=64,
                  pt_radius=0.05,
-                 pts_per_pxl=1,
+                 pts_per_pxl=5,
                  aspect_ratio=torch.tensor(1.0),
                  cam_fov=torch.tensor(60),
                  znear=0.01,

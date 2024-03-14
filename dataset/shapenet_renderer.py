@@ -26,10 +26,13 @@ class ShapeNetRenderer:
         self.cloud_post_process = cloud_post_process
 
     def _preload_clouds(self, shuffle):
+        if self.num_objects is None: self.num_objects = len(self.dataset)
         if shuffle: obj_ids = torch.randperm(len(self.dataset), dtype=torch.long)
         else: obj_ids = torch.arange(0, len(self.dataset), dtype=torch.long)
-        self.clouds = [self.dataset[i]['pointcloud'] for i in obj_ids[:self.num_objects]]
-        self.clouds = torch.stack(self.clouds)
+        pcd_data = self.dataset.pointclouds
+        select_ids = obj_ids[:self.num_objects]
+        self.clouds = torch.stack([pcd_data[i]['pointcloud'] for i in select_ids])
+        self.cates = [pcd_data[i]['cate'] for i in select_ids]
         self.features = self.feature_extractor(self.clouds)
 
     def to(self, device):
@@ -43,15 +46,17 @@ class ShapeNetRenderer:
                                  replacement=True)
         clouds = self.cloud_post_process(self.clouds[idxs])
         features = self.features[idxs]
-        return clouds, features
+        cates = [self.cates[i] for i in idxs]
+        return clouds, features, cates
 
     def __call__(self):
         # TODO: make Transform sampler a functor and pass it in after configuring it.
         Rs, Ts = sample_transforms(self.batch_size, 
                                    elev_range=[0, 70], 
                                    device=self.clouds.device)
-        clouds, features = self._sample_batch_of_clouds()
+        clouds, features, cates = self._sample_batch_of_clouds()
         renders = self.renderer(clouds, features, Rs=Rs, Ts=Ts)
+        renders['categories'] = cates
         return renders
         
 
@@ -96,4 +101,7 @@ class ShapeNetDataloader:
             result['face_points'] = fp
         if 'images' in self.return_dict:
             result['images'] = renders['images'].permute(0, 3, 1, 2)
+            result['images'] = ( result['images'] * 2 ) - 1
+        if 'categories' in self.return_dict:
+            result['categories'] = renders['categories']
         return result

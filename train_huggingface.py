@@ -23,13 +23,14 @@ import os
 
 
 from models.vae import VAEPointNetEncoder
-def get_depth_encoder(cfg, load_path):
+def get_depth_encoder(cfg, load_path=None):
         model = VAEPointNetEncoder(in_dim=3,
                                    latent_dim=cfg.depth_latent_size,
                                    out_dim=1,
                                    im_size=cfg.image_size,
                                 ).to(cfg.device)
-        model.load_state_dict(torch.load(load_path))
+        if load_path is not None:
+            model.load_state_dict(torch.load(load_path))
         model.encoder.mean_only = True
         return model.encoder
 

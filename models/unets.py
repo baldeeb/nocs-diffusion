@@ -7,7 +7,12 @@ UNET_DEFAULTS = {
     'up_block_types': ("UpBlock2D", "UpBlock2D", "UpBlock2D",), # regular ResNet upsampling block
     'cross_attention_dim': 1280,
 }
-CONDITIONED_UNET_DEFAULTS = UNET_DEFAULTS
+CONDITIONED_UNET_DEFAULTS = {
+    'block_out_channels': (128, 128, 128), # the number of output channels for each UNet block
+    'down_block_types': ("CrossAttnDownBlock2D", "CrossAttnDownBlock2D", "CrossAttnDownBlock2D",), # regular ResNet downsampling block
+    'up_block_types': ("UpBlock2D", "UpBlock2D", "UpBlock2D",), # regular ResNet upsampling block
+    'cross_attention_dim': 1280,
+}
 
 def get_unet(cfg):
     for k in UNET_DEFAULTS:
@@ -59,7 +64,7 @@ if __name__ == '__main__':
                     #     'encoder_hidden_states': ctxts,
                     #   },
                       (images, timesteps, ctxts), 
-                      'rnn.onnx', 
+                      '.scratch/rnn.onnx', 
                       input_names=['data', 'timesteps', 'context'], 
                       output_names=['results'],
                     #   dynamic_axes={'input' : {0 : 'batch_size'},

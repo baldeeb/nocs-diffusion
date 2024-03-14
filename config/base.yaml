@@ -21,9 +21,9 @@ dataloader:
   renderer:
     _target_: dataset.ShapeNetRenderer.build
     path: './data/shapenet.hdf5'
-    categories: ['mug']
+    categories: ['mug', 'bowl', 'laptop', 'bottle', 'camera']
     split: test
-    num_objects: 18   # count of objects to use
+    num_objects:    # count of objects to use, None implies all
     batch_size: 18     # count of poses from which to view object
     image_size: ${image_size}
     shuffle: true     # whether to shuffle when choosing objects
