@@ -54,7 +54,7 @@ class PointRgbdRenderer(PointsRenderer):
                 'face_points':face_pts}
 
 
-class RendererWrapper(nn.Module):
+class Torch3DRendererWrapper(nn.Module):
     '''Wraps Camera, Rasteraizer, and Renderer'''
     def __init__(self,
                  image_size=64,

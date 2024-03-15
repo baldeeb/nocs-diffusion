@@ -1,6 +1,6 @@
 
 from .shapenet_renderer import ShapeNetRenderer, ShapeNetDataloader
-from .renderer import RendererWrapper, sample_transforms, mask_from_depth
+from .renderer import Torch3DRendererWrapper, sample_transforms, mask_from_depth
 from .dataloader import PointCloudLoader
 
 from .nocs_tools import nocs_extractor

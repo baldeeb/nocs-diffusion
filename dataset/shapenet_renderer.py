@@ -1,5 +1,5 @@
-from .shapenet import ShapeNetCore
-from .renderer import RendererWrapper, sample_transforms, mask_from_depth
+from .shapenet import ShapeNetCore, cate_to_synsetid
+from .renderer import Torch3DRendererWrapper, sample_transforms, mask_from_depth
 from .renderer_tools import sample_from_clouds
 from .nocs_tools import nocs_extractor
 
@@ -8,19 +8,24 @@ import torch
 class ShapeNetRenderer:
     def __init__(self, 
                  dataset:ShapeNetCore, 
-                 renderer:RendererWrapper, 
+                 renderer:Torch3DRendererWrapper, 
                  num_objects:int, 
                  batch_size:int,
                  shuffle:bool=True,
                  feature_extractor=nocs_extractor,
                  cloud_post_process=lambda _:_,
                  device='cpu',
+                 categories_to_ids=None,
                  **_):
         self.dataset = dataset
         self.renderer = renderer
         self.num_objects = num_objects
         self.batch_size = batch_size
         self.feature_extractor = feature_extractor
+        if categories_to_ids is None:
+            self.categories_to_ids = {c:int(i) for c, i in cate_to_synsetid.items()}
+        else:
+            self.categories_to_ids = categories_to_ids
         self._preload_clouds(shuffle)
         self.to(device)
         self.cloud_post_process = cloud_post_process
@@ -32,12 +37,14 @@ class ShapeNetRenderer:
         pcd_data = self.dataset.pointclouds
         select_ids = obj_ids[:self.num_objects]
         self.clouds = torch.stack([pcd_data[i]['pointcloud'] for i in select_ids])
-        self.cates = [pcd_data[i]['cate'] for i in select_ids]
+        categories = [pcd_data[i]['cate'] for i in select_ids]
+        self.cate_ids = torch.tensor([self.categories_to_ids[c] for c in categories])
         self.features = self.feature_extractor(self.clouds)
 
     def to(self, device):
         self.clouds = self.clouds.to(device)
         self.features = self.features.to(device)
+        self.cate_ids = self.cate_ids.to(device)
         return self
     
     def _sample_batch_of_clouds(self):
@@ -46,7 +53,7 @@ class ShapeNetRenderer:
                                  replacement=True)
         clouds = self.cloud_post_process(self.clouds[idxs])
         features = self.features[idxs]
-        cates = [self.cates[i] for i in idxs]
+        cates = [self.cate_ids[i] for i in idxs]
         return clouds, features, cates
 
     def __call__(self):
@@ -56,13 +63,14 @@ class ShapeNetRenderer:
                                    device=self.clouds.device)
         clouds, features, cates = self._sample_batch_of_clouds()
         renders = self.renderer(clouds, features, Rs=Rs, Ts=Ts)
-        renders['categories'] = cates
+        renders['category_ids'] = cates
         return renders
         
 
     @staticmethod
     def build(path, 
               categories, 
+              category_ids,
               split, 
               scale_mode, 
               image_size, 
@@ -71,9 +79,12 @@ class ShapeNetRenderer:
                                 cates=categories,
                                 split=split,
                                 scale_mode=scale_mode)
-        renderer = RendererWrapper(image_size=image_size)
+        renderer = Torch3DRendererWrapper(image_size=image_size)
+        
+        cates_to_ids = {c:i for c, i in zip(categories, category_ids)}
         return ShapeNetRenderer(dataset=dataset, 
                                 renderer=renderer, 
+                                categories_to_ids= cates_to_ids,
                                 **kwargs)
 
 

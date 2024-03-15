@@ -1,5 +1,5 @@
 from utils.diffusion import (VarianceSchedule, ForwardDiffuser)
-from dataset.renderer import RendererWrapper, sample_transforms, mask_from_depth
+from dataset.renderer import Torch3DRendererWrapper, sample_transforms, mask_from_depth
 from utils.visualization import viz_image_batch
 from dataset.dataloader import PointCloudLoader
 from dataset.nocs_tools import nocs_extractor
@@ -33,7 +33,7 @@ diffuse = ForwardDiffuser(var_sched, mean=0.5)
 diffuse_clip = lambda *args: diffuse(*args).clip(0.0, 1.0)
 
 # Setup Renderer
-render = RendererWrapper()
+render = Torch3DRendererWrapper()
 
 # Run Rendering
 pts = dataloader()
