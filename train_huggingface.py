@@ -1,23 +1,15 @@
 import torch
 import torch.nn.functional as F
 
-from models.nocs_diffusion import NocsDiff, CtxtEncoder
-from models.scheduler import VarianceSchedule
-from models.unets import get_unet, get_conditioned_unet
+from models.unets import get_conditioned_unet
 
-from dataset import sample_from_clouds
 from utils.visualization import viz_image_batch
 
 from diffusers.optimization import get_cosine_schedule_with_warmup
 from diffusers import DDPMScheduler
 
-from torchvision import transforms
-
-
 from omegaconf import DictConfig, OmegaConf
 from tqdm import tqdm
-import pathlib as pl
-import wandb
 import hydra
 import os
 
@@ -96,7 +88,7 @@ def run(cfg: DictConfig) -> None:
     # Setup Forward Diffusion
     scheduler = DDPMScheduler()
     ctxt_encoder = get_depth_encoder(cfg, 
-        '/home/baldeeb/Code/nocs-diffusion/checkpoints/nocs-diffusion/depth_vae/2024-03-07_17-49-55/0000_009999.pth')
+        '/home/baldeeb/Code/nocs-diffusion/checkpoints/nocs-diffusion/depth_vae/2024-03-15_21-40-45/0000_000000.pth')
     
     cfg_dict = OmegaConf.to_object(cfg)
     # model = NocsDiff(3, ctx_net, 64).to(config.device)  # MY OWN

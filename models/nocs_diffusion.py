@@ -11,7 +11,7 @@ from torchvision.models.segmentation import deeplabv3_resnet50
 
 from models.context_encoder import CtxtEncoder
 from models.scheduler import VarianceSchedule
-from models.film_layer import FilmResLayer
+from .blocks import FilmResLayer
 
 from typing import Optional
 

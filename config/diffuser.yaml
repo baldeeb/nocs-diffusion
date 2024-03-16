@@ -12,7 +12,7 @@ steps_before_eval: 100   # Batches before evaluating
 num_eval_batches: 5      # Batches to evaluate on
 
 # Models
-depth_latent_size: 1280
+depth_latent_size: 1080
 num_train_timesteps: 1000
 cross_attention_dim: ${depth_latent_size}
 

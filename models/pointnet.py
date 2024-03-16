@@ -2,51 +2,6 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-class FilmLinearLayer(nn.Module):
-    def __init__(self, in_ch, out_ch, 
-                 ctxt_ch_in=None,
-                 bn_layer=nn.BatchNorm1d, 
-                 act_layer=nn.ReLU, 
-                 **conv_kwargs):
-        self.conv =  nn.Conv1d(in_ch, out_ch, **conv_kwargs)
-        self.bn = bn_layer(out_ch)
-        self.act = act_layer()
-        if ctxt_ch_in is not None:
-            self.ctxt_proj = nn.Linear(ctxt_ch_in, 2 * out_ch)
-        else: self.ctxt_proj = nn.Identity()
-
-    def forward(self, x, ctxt=None):
-        if ctxt is not None:
-            alpha, beta = torch.chunk(self.ctxt_proj(ctxt), 2)
-        else: alpha, beta = 1.0, 0.0
-        return self.act(self.bn( self.conv(x) * alpha + beta ))
-
-class ContextualPointNetEncoder(nn.Module):
-    def __init__(self, zdim, in_ch=3):
-        self.enc = nn.Sequential(
-            FilmLinearLayer(in_ch, 128, kernel_size=1),
-            FilmLinearLayer(128,   128, kernel_size=1),
-            FilmLinearLayer(128,   256, kernel_size=1),
-            FilmLinearLayer(256,   512,
-                            act_layer=nn.Identity, 
-                            kernel_size=1))
-        def _layer(i, o, a=True): 
-            l = [nn.Linear(i, o), nn.BatchNorm1d(o)]    
-            if a: l.append(nn.ReLU())
-            return nn.Sequential(*l)
-        self.mu = nn.Sequential(
-            _layer(512, 256),
-            _layer(256, 128),
-            _layer(128, zdim, False), )
-        self.var = nn.Sequential(
-            _layer(512, 256),
-            _layer(256, 128),
-            _layer(128, zdim, False), )
-
-    def forward(self, x, ctxt=None):
-        x = self.enc(x, ctxt=ctxt)
-        return self.mu(x), self.var(x)
-
 class PointNetEncoder(nn.Module):
     def __init__(self, zdim, input_dim=3):
         super().__init__()
