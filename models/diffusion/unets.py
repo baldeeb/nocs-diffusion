@@ -19,7 +19,7 @@ def get_unet(cfg):
         if k not in cfg:
             cfg[k] = UNET_DEFAULTS[k]
 
-    return UNet2DModel(
+    net = UNet2DModel(
         sample_size=cfg['image_size'],  # the target image resolution
         in_channels=3,  # the number of input channels, 3 for RGB images
         out_channels=3,  # the number of output channels
@@ -28,13 +28,16 @@ def get_unet(cfg):
         down_block_types=cfg['down_block_types'],
         up_block_types=cfg['up_block_types']
     )
+    if 'load_path' in cfg:
+        sd = torch.load(cfg['load_path'])
+        net.load_state_dict(sd)
 
 def get_conditioned_unet(cfg):
     for k in CONDITIONED_UNET_DEFAULTS:
         if k not in cfg:
             cfg[k] = CONDITIONED_UNET_DEFAULTS[k]
 
-    return UNet2DConditionModel(
+    net = UNet2DConditionModel(
         sample_size=cfg['image_size'],
         in_channels=3,
         out_channels=3,
@@ -44,6 +47,9 @@ def get_conditioned_unet(cfg):
         up_block_types=cfg['up_block_types'],
         cross_attention_dim=cfg['cross_attention_dim']
     )
+    if 'load_path' in cfg:
+        sd = torch.load(cfg['load_path'])
+        net.load_state_dict(sd)
 
 
 if __name__ == '__main__':
@@ -58,16 +64,9 @@ if __name__ == '__main__':
     kwargs = {'input_names':'data', 'output_names':'results'}
 
     torch.onnx.export(net, 
-                    #   {
-                    #     'sample': images,
-                    #     'timestep': timesteps,
-                    #     'encoder_hidden_states': ctxts,
-                    #   },
                       (images, timesteps, ctxts), 
                       '.scratch/rnn.onnx', 
                       input_names=['data', 'timesteps', 'context'], 
                       output_names=['results'],
-                    #   dynamic_axes={'input' : {0 : 'batch_size'},
-                    #                 'output' : {0 : 'batch_size'}}
                     )
     # torch.onnx.export(net, *data, 'rnn.onnx', **kwargs)

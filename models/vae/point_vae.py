@@ -10,7 +10,8 @@ from models.vae import vae_loss, ConvDecoder
 from models.blocks.pointnet import PointNetEncoder
 
 class VAEPointNetEncoder(nn.Module): 
-    def __init__(self, in_dim, latent_dim, out_dim, im_size):
+    def __init__(self, in_dim, latent_dim, out_dim, im_size,
+                 load_path=None):
         """
         Simple VAE model. 
         
@@ -26,9 +27,10 @@ class VAEPointNetEncoder(nn.Module):
         super().__init__()
         self.out_shape = (out_dim, im_size, im_size)
         self.latent_size = latent_dim
-        
         self.encoder = PointNetEncoder(input_dim=in_dim, zdim=latent_dim)
         self.decoder = ConvDecoder(latent_dim, self.out_shape)
+        if load_path: self.load_state_dict(torch.load(load_path))
+
 
     def forward(self, x):
         # TODO: finish the forward pass of VAE model

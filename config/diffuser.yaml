@@ -14,7 +14,21 @@ num_eval_batches: 5      # Batches to evaluate on
 # Models
 depth_latent_size: 1080
 num_train_timesteps: 1000
-cross_attention_dim: ${depth_latent_size}
+# cross_attention_dim: ${depth_latent_size}
+
+diffusion_model:
+  _target_:  models.utils.load_model
+  path: 
+  model:
+    _target_:             diffusers.UNet2DConditionModel
+    sample_size:          cfg['image_size']
+    in_channels:          3
+    out_channels:         3
+    layers_per_block:     1
+    block_out_channels:   [128, 128, 128] # the number of output channels for each UNet block  
+    down_block_types:     ["CrossAttnDownBlock2D", "CrossAttnDownBlock2D", "CrossAttnDownBlock2D"] # regular ResNet downsampling block
+    up_block_types:       ["UpBlock2D", "UpBlock2D", "UpBlock2D"] # regular ResNet upsampling block
+    cross_attention_dim:  ${depth_latent_size}
 
 vae:
   _target_:   models.vae.VAEPointNetEncoder
@@ -22,6 +36,7 @@ vae:
   latent_dim: ${depth_latent_size}
   out_dim:    1  # Predict Mask
   im_size:    ${image_size}
+  load_path: /home/baldeeb/Code/nocs-diffusion/checkpoints/nocs-diffusion/depth_vae/2024-03-15_21-40-45/0000_000000.pth
 
 
 # Optimizer
