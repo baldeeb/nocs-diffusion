@@ -2,6 +2,8 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
+from .common import ModelReturnType
+
 class PointNetEncoder(nn.Module):
     def __init__(self, zdim, input_dim=3):
         super().__init__()
@@ -46,5 +48,5 @@ class PointNetEncoder(nn.Module):
         v = self.fc3_v(v)
 
         # Returns both mean and logvariance, just ignore the latter in deteministic cases.
-        return m, v
+        return ModelReturnType(mu=m, var=v)
 

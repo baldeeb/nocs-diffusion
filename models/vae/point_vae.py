@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from models.vae import vae_loss, ConvDecoder
-from models.pointnet import PointNetEncoder
+from models.blocks.pointnet import PointNetEncoder
 
 class VAEPointNetEncoder(nn.Module): 
     def __init__(self, in_dim, latent_dim, out_dim, im_size):

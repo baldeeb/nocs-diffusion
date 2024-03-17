@@ -8,6 +8,7 @@ from diffusers.optimization import get_cosine_schedule_with_warmup
 from models.vae import VAEPointNetEncoder
 
 from utils.visualization import viz_image_batch
+
 from utils.load_save import save_model
 
 from omegaconf import DictConfig, OmegaConf
@@ -17,38 +18,7 @@ import os
 from tqdm import tqdm
 import pathlib as pl
 
-
-def train(config, model, optimizer, lr_scheduler, dataloader):
-
-    # Logger
-    if config.log: 
-        wandb.init(**config.logger, config=OmegaConf.to_container(config))
-        log = wandb.log
-    else: log = lambda x: None
-
-    epoch = 0
-    batch_tqdm = tqdm(range(config.num_epochs), 
-                      desc='Training Step Loop')
-    for batch_i in batch_tqdm:
-        log({'step': batch_i+1})
-
-        data = dataloader()
-        loss = model.loss(data['face_points'], data['masks'])  # TODO: remove this train fx or make loss fx more versatile.
-        log(loss)
-        
-        optimizer.zero_grad()
-        loss['loss'].backward()
-        optimizer.step()
-        lr_scheduler.step()
-
-        if config.steps_before_save and (batch_i % config.steps_before_save) == 0:
-            batch_tqdm.set_description(f'Saving batch {batch_i}, loss {loss["loss"]:.2f}')
-            save_model(model, pl.Path(config.checkpoint_dir), epoch, batch_i,
-                        retain_n=config.get('retain_n_checkpoints', None))
-
-    save_model(model, pl.Path(config.checkpoint_dir), epoch, batch_i,
-                retain_n=config.get('retain_n_checkpoints', None))
-
+from utils.train import train
 
 def visualize_sample(dataloader, model):
     data = dataloader()
@@ -65,6 +35,14 @@ def run(cfg: DictConfig) -> None:
         os.environ["WANDB_MODE"] = "offline"
 
     model = hydra.utils.instantiate(cfg.model).to(cfg.device)
+    class CloudToMaskVae(torch.nn.Module):
+        def __init__(self, model):
+            super().__init__()
+            self.net = model
+        def forward(self, **data):
+            return self.net(data['face_points'])
+        def loss(self, **data):
+            return self.net.loss(data['face_points'], data['masks'])
     
     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.lr)
     lr_scheduler = get_cosine_schedule_with_warmup(
@@ -75,7 +53,7 @@ def run(cfg: DictConfig) -> None:
 
     dataloader = hydra.utils.instantiate(cfg.dataloader).to(cfg.device)
 
-    train(cfg, model, optimizer, lr_scheduler, dataloader)
+    train(cfg, CloudToMaskVae(model), optimizer, lr_scheduler, dataloader)
 
     visualize_sample(dataloader, model)
 

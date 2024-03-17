@@ -2,79 +2,66 @@ import torch
 import torch.nn.functional as F
 
 from models.unets import get_conditioned_unet
-
 from utils.visualization import viz_image_batch
 
 from diffusers.optimization import get_cosine_schedule_with_warmup
 from diffusers import DDPMScheduler
 
 from omegaconf import DictConfig, OmegaConf
-from tqdm import tqdm
 import hydra
 import os
 
+from utils.train import train as train_util
 
-from models.vae import VAEPointNetEncoder
-def get_depth_encoder(cfg, load_path=None):
-        model = VAEPointNetEncoder(in_dim=3,
-                                   latent_dim=cfg.depth_latent_size,
-                                   out_dim=1,
-                                   im_size=cfg.image_size,
-                                ).to(cfg.device)
-        if load_path is not None:
-            model.load_state_dict(torch.load(load_path))
-        model.encoder.mean_only = True
-        return model.encoder
-
-def train(config, model, ctxt_encoder, scheduler, optimizer, lr_scheduler, dataloader):
-   
-
-    for epoch in range(config.num_epochs):
-
-        data = dataloader()
-        images, pts = data['images'], data['face_points']
-
-
-        # forward diffusion
-        timesteps = torch.randint(0, config.num_train_timesteps, (images.shape[0],), 
-                                device=config.device, dtype=torch.int64)
-        noise = torch.randn_like(images)
-        noised_images = scheduler.add_noise(images, noise, timesteps)
-
-        # pred_noise = model(noised_images, depths)  # MY OWN
-        # pred_noise = model(noised_images, timesteps).sample  # Unconditioned UNET
-        ctxt = ctxt_encoder(pts)[0][:, None]
-        pred_noise = model(noised_images, timesteps, ctxt).sample  # Conditioned UNET
-        
-        loss = F.mse_loss(noise, pred_noise)
-        loss.backward()
-        
-        # print loss
-        if epoch % 500 == 0: print(loss)
-        
-        optimizer.step()
-        lr_scheduler.step()
-        optimizer.zero_grad()
-
-
+def visualize(dataloader, model, ddpm_scheduler):
     as_np = lambda x: (x/2 + 0.5).permute(0,2,3,1).detach().cpu().numpy()
-
+    data = dataloader()
+    images = data['images']
     viz_image_batch(as_np(images), block=False, title='Original')
-    viz_image_batch(as_np(noised_images), block=False, title='Noised')
-
-    img = noised_images.clone().detach()
-    c = ctxt.clone().detach()
-
-    for t in scheduler.timesteps:
-        with torch.no_grad():
-            # noisy_residual = model(input, depths)  # MY OWN
-            # noisy_residual = model(img, t).sample  # UNet
-            noisy_residual = model(img, t, c).sample  # Conditioned UNet
-        previous_noisy_sample = scheduler.step(noisy_residual, t, img).prev_sample
-        img = previous_noisy_sample
     
-    viz_image_batch(as_np(img), title='Fixed')
-    pass
+    timesteps = model.sample_timesteps(len(images), images.device)
+    noised_images = ddpm_scheduler.add_noise(images, torch.randn_like(images), timesteps)
+    viz_image_batch(as_np(noised_images), block=False, title='Noised')
+    
+    fixed_images = model.fix(noisy_images=noised_images, **data)
+    viz_image_batch(as_np(fixed_images), title='Fixed')
+
+
+class UnetWrapper(torch.nn.Module):
+    def __init__(self, ctxt_encoder, conditioned_unet, ddpm_scheduler):
+        super().__init__()
+        self.ctxt_net = ctxt_encoder
+        self.unet = conditioned_unet
+        self.scheduler = ddpm_scheduler
+        self.num_ts = len(ddpm_scheduler.betas)  # num_train_timesteps
+    
+    def fix(self, **data):
+        noisy = data['noisy_images'].clone().detach()
+        points = data['face_points']
+
+        ctxt = self.ctxt_net(points).mu[:, None]
+        for t in self.scheduler.timesteps:
+            with torch.no_grad():
+                res = self.unet(noisy, t, ctxt).sample  # Conditioned UNet
+            noisy = self.scheduler.step(res, t, noisy).prev_sample
+        return noisy  # after backward diffusion 
+    
+    def sample_timesteps(self, count, device):
+        return torch.randint(0, self.num_ts, (count,), device=device, dtype=torch.int64)
+
+    def forward(self, **data):
+        ctxt = self.ctxt_net(data['face_points']).mu[:, None]
+        return self.unet(data['noisy_images'], data['timesteps'], ctxt).sample
+        
+    def loss(self, **data):
+        timesteps = torch.randint(0, self.num_ts, (data['images'].shape[0],), 
+                                    device=data['images'].device, dtype=torch.int64)
+        noise = torch.randn_like(data['images'])
+        noised = self.scheduler.add_noise(data['images'], noise, timesteps)
+        pred = self.forward(noisy_images=noised, timesteps=timesteps, **data)
+        loss = F.mse_loss(noise, pred)
+        return {'loss':loss}
+
 
 
 @hydra.main(version_base=None, config_path='./config', config_name='diffuser')
@@ -86,25 +73,31 @@ def run(cfg: DictConfig) -> None:
     dataloader = hydra.utils.instantiate(cfg.dataloader).to(cfg.device)
 
     # Setup Forward Diffusion
-    scheduler = DDPMScheduler()
-    ctxt_encoder = get_depth_encoder(cfg, 
-        '/home/baldeeb/Code/nocs-diffusion/checkpoints/nocs-diffusion/depth_vae/2024-03-15_21-40-45/0000_000000.pth')
+    ddpm_scheduler = DDPMScheduler()
+    ddpm_scheduler.set_timesteps(cfg.num_train_timesteps)
     
+    # Load context encoder
+    load_path = '/home/baldeeb/Code/nocs-diffusion/checkpoints/nocs-diffusion/depth_vae/2024-03-15_21-40-45/0000_000000.pth'
+    vae = hydra.utils.instantiate(cfg.vae).to(cfg.device)
+    if load_path is not None: vae.load_state_dict(torch.load(load_path))
+    ctxt_encoder = vae.encoder
+    
+    # Instantiate diffusion model
     cfg_dict = OmegaConf.to_object(cfg)
-    # model = NocsDiff(3, ctx_net, 64).to(config.device)  # MY OWN
-    # model = get_unet(cfg_dict).to(config.device)
-    model = get_conditioned_unet(cfg_dict).to(cfg.device)
-    
-    optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.lr)
+    unet = get_conditioned_unet(cfg_dict).to(cfg.device)
+    model = UnetWrapper(ctxt_encoder, unet, ddpm_scheduler)
+
+    # Set up optimizer  TODO: move to hydra config.
+    optimizer = torch.optim.AdamW(unet.parameters(), lr=cfg.lr)
     lr_scheduler = get_cosine_schedule_with_warmup(
         optimizer=optimizer,
         num_warmup_steps=cfg.lr_warmup_steps,
         num_training_steps=(cfg.num_epochs),
     )
-    scheduler.set_timesteps(cfg.num_train_timesteps)
-    
-    
-    train(cfg, model, ctxt_encoder, scheduler, optimizer, lr_scheduler, dataloader)
+
+    # Run training
+    train_util(cfg, model, optimizer, lr_scheduler, dataloader)
+    visualize(dataloader, model, ddpm_scheduler)
 
 if __name__ == '__main__':
     run()

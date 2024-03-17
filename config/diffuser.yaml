@@ -6,7 +6,7 @@ logger:
   name: diffuser
 
 # Training
-num_epochs: 5000        # Epochs to train for
+num_epochs: 2000        # Epochs to train for
 steps_before_save: 1000  # Batches before saving a checkpoint
 steps_before_eval: 100   # Batches before evaluating
 num_eval_batches: 5      # Batches to evaluate on
@@ -15,6 +15,14 @@ num_eval_batches: 5      # Batches to evaluate on
 depth_latent_size: 1080
 num_train_timesteps: 1000
 cross_attention_dim: ${depth_latent_size}
+
+vae:
+  _target_:   models.vae.VAEPointNetEncoder
+  in_dim:     3  # Point Cloud
+  latent_dim: ${depth_latent_size}
+  out_dim:    1  # Predict Mask
+  im_size:    ${image_size}
+
 
 # Optimizer
 lr: 1e-4

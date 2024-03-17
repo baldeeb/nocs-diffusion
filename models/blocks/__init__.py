@@ -1,2 +1,3 @@
-from .conditioned_point_net import ConditionedPointNetEncoder
+from .conditioned_pointnet import ConditionedPointNetEncoder
+from .pointnet import PointNetEncoder
 from .film import FilmLinearLayer, FilmResLayer
