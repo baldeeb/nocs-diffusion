@@ -1,17 +1,15 @@
-# TODO: move to a location that houses models specific to this setup.
-
 import torch
 import torch.nn.functional as F
 from diffusers import DDPMScheduler
 
 class PointContextualized2dDiffusionModel(torch.nn.Module):
     '''This class packages the huggingface diffusion utils to facilitate use.'''
-    def __init__(self, conditioned_model, ctxt_encoder, ddpm_scheduler:DDPMScheduler):
+    def __init__(self, diffusion_model, context_model, scheduler:DDPMScheduler):
         super().__init__()
-        self.ctxt_net = ctxt_encoder
-        self.diff_net = conditioned_model
-        self.scheduler = ddpm_scheduler
-        self.num_ts = len(ddpm_scheduler.betas)  # num_train_timesteps
+        self.ctxt_net = context_model.encoder
+        self.diff_net = diffusion_model
+        self.scheduler = scheduler
+        self.num_ts = len(scheduler.betas)  # num_train_timesteps
     
     def fix(self, **data):
         noisy = data['noisy_images'].clone().detach()

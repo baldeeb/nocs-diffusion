@@ -1,6 +1,5 @@
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import OmegaConf
 import wandb
-import hydra
 import os
 from tqdm import tqdm
 import pathlib as pl
