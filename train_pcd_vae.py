@@ -1,22 +1,11 @@
 import torch
 
 from utils.visualization import viz_image_batch
-from utils.load_save import save_model
-
 from diffusers.optimization import get_cosine_schedule_with_warmup
-
-from models.vae import VAEPointNetEncoder
-
-from utils.visualization import viz_image_batch
-
-from utils.load_save import save_model
-
-from omegaconf import DictConfig, OmegaConf
-import wandb
+from models import CloudToMaskVae
+from omegaconf import DictConfig
 import hydra
 import os
-from tqdm import tqdm
-import pathlib as pl
 
 from utils.train import train
 
@@ -34,16 +23,8 @@ def run(cfg: DictConfig) -> None:
     if cfg.log_locally:
         os.environ["WANDB_MODE"] = "offline"
 
-    model = hydra.utils.instantiate(cfg.model).to(cfg.device)
-    class CloudToMaskVae(torch.nn.Module):
-        def __init__(self, model):
-            super().__init__()
-            self.net = model
-        def forward(self, **data):
-            return self.net(data['face_points'])
-        def loss(self, **data):
-            return self.net.loss(data['face_points'], data['masks'])
-    
+    model = hydra.utils.instantiate(cfg.vae).to(cfg.device)
+
     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.lr)
     lr_scheduler = get_cosine_schedule_with_warmup(
         optimizer=optimizer,
@@ -53,7 +34,7 @@ def run(cfg: DictConfig) -> None:
 
     dataloader = hydra.utils.instantiate(cfg.dataloader).to(cfg.device)
 
-    train(cfg, CloudToMaskVae(model), optimizer, lr_scheduler, dataloader)
+    train(cfg, model, optimizer, lr_scheduler, dataloader)
 
     visualize_sample(dataloader, model)
 

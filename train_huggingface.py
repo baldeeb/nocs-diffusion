@@ -1,6 +1,6 @@
 import torch
 
-from models.diffusion import ConditionedDiffusionModel
+from models import PointContextualized2dDiffusionModel
 
 from utils.train import train
 from utils.visualization import viz_image_batch
@@ -30,9 +30,7 @@ def visualize(dataloader, model, ddpm_scheduler):
 @hydra.main(version_base=None, config_path='./config', config_name='diffuser')
 def run(cfg: DictConfig) -> None:
 
-    if cfg.log_locally:
-        os.environ["WANDB_MODE"] = "offline"
-    
+    # Instantiate dataset
     dataloader = hydra.utils.instantiate(cfg.dataloader).to(cfg.device)
 
     # Setup Forward Diffusion
@@ -42,7 +40,7 @@ def run(cfg: DictConfig) -> None:
     # Load context encoder
     ctxt_net = hydra.utils.instantiate(cfg.vae).encoder
     diff_net = hydra.utils.instantiate(cfg.diffusion_model)
-    model = ConditionedDiffusionModel(diff_net, ctxt_net, noise_sched).to(cfg.device)
+    model = PointContextualized2dDiffusionModel(diff_net, ctxt_net, noise_sched).to(cfg.device)
 
     # Set up optimizer  TODO: move to hydra config.
     optimizer = torch.optim.AdamW(diff_net.parameters(), lr=cfg.lr)

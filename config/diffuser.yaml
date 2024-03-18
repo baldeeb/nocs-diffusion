@@ -6,13 +6,13 @@ logger:
   name: diffuser
 
 # Training
-num_epochs: 2000        # Epochs to train for
+num_epochs: 100000        # Epochs to train for
 steps_before_save: 1000  # Batches before saving a checkpoint
 steps_before_eval: 100   # Batches before evaluating
 num_eval_batches: 5      # Batches to evaluate on
 
 # Models
-depth_latent_size: 1080
+depth_latent_size: 1028
 num_train_timesteps: 1000
 # cross_attention_dim: ${depth_latent_size}
 
@@ -31,16 +31,16 @@ diffusion_model:
     cross_attention_dim:  ${depth_latent_size}
 
 vae:
-  _target_:   models.vae.VAEPointNetEncoder
-  in_dim:     3  # Point Cloud
-  latent_dim: ${depth_latent_size}
-  out_dim:    1  # Predict Mask
-  im_size:    ${image_size}
-  load_path: /home/baldeeb/Code/nocs-diffusion/checkpoints/nocs-diffusion/depth_vae/2024-03-15_21-40-45/0000_000000.pth
-
+  _target_:   models.CloudToMaskVae
+  model:
+    _target_: models.vae.VAEPointNetEncoder
+    in_dim:     3  # Point Cloud
+    latent_dim: ${depth_latent_size}
+    out_dim:    1  # Predict Mask
+    im_size:    ${image_size}
+  load_path:  /home/baldeeb/Code/nocs-diffusion/checkpoints/nocs-diffusion/depth_vae/2024-03-18_10-16-23/0000_099999.pth
 
 # Optimizer
 lr: 1e-4
 lr_warmup_steps: 50
 
-image_size: 32

@@ -1,8 +1,10 @@
+# TODO: move to a location that houses models specific to this setup.
+
 import torch
 import torch.nn.functional as F
 from diffusers import DDPMScheduler
 
-class ConditionedDiffusionModel(torch.nn.Module):
+class PointContextualized2dDiffusionModel(torch.nn.Module):
     '''This class packages the huggingface diffusion utils to facilitate use.'''
     def __init__(self, conditioned_model, ctxt_encoder, ddpm_scheduler:DDPMScheduler):
         super().__init__()
