@@ -1,11 +1,10 @@
-import torch
+import hydra
+from omegaconf import DictConfig
 
-from utils.train import train
+import torch
 from diffusers.optimization import get_cosine_schedule_with_warmup
 
-from omegaconf import DictConfig
-import hydra
-
+from utils.train import train
 
 
 @hydra.main(version_base=None, config_path='./config', config_name='diffuser')

@@ -17,7 +17,7 @@ vae:
   model:
     _target_:   models.CloudToMaskVae
     model:
-      _target_: models.vae.VAEPointNetEncoder
+      _target_: models.vae.VAEPointNetEncoderConvDecoder
       in_dim:     3  # Point Cloud
       latent_dim: 1028
       out_dim:    1  # Predict Mask

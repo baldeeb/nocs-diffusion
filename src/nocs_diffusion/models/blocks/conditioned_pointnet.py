@@ -1,7 +1,7 @@
 from torch import nn
 
 from .film import FilmLinearLayer
-from models.utils import ModelReturnType
+from ..utils import ModelReturnType
     
 class ConditionedPointNetEncoder(nn.Module):
     def __init__(self, zdim, in_ch=3,

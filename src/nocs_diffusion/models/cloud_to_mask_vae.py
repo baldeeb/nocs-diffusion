@@ -1,8 +1,8 @@
 import torch
-from .vae import VAEPointNetEncoder
+from .vae import VAEPointNetEncoderConvDecoder
 
 class CloudToMaskVae(torch.nn.Module):
-        def __init__(self, model:VAEPointNetEncoder):
+        def __init__(self, model:VAEPointNetEncoderConvDecoder):
             super().__init__()
             self.net = model
 

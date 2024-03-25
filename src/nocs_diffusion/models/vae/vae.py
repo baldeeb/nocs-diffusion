@@ -1,48 +1,30 @@
-from collections import OrderedDict
-import numpy as np
-
 import torch
 import torch.nn as nn
 
-import torch.nn.functional as F
+from . import vae_loss
 
-from models.vae import ConvEncoder, ConvDecoder
 
-class VAEConvNet(nn.Module): 
-    def __init__(self, input_shape, latent_size):
+class VAE(nn.Module): 
+    def __init__(self, encoder, decoder):
         """
         Simple VAE model. 
         
         Inputs: 
         - input_shape: size of input with shape (C, H, W)
         - latent_size: size of latent variable
-
-        ------- Instruction -------
-        You could follow the recommended network architecture in vae.ipynb
-        
-        ---------------------------
         """
         super().__init__()
-        assert len(input_shape) == 3
+        self.encoder = encoder
+        self.decoder = decoder
 
-        self.input_shape = input_shape
-        self.latent_size = latent_size
-        
-        self.encoder = ConvEncoder(input_shape, latent_size)
-        self.decoder = ConvDecoder(latent_size, input_shape)
 
     def forward(self, x):
-        # TODO: finish the forward pass of VAE model
         # Normalize the input to [-1, 1]
-        
         x = 2*x - 1
         (mu, log_std) = self.encoder(x)
-        
         zeros = torch.zeros_like(mu)
         ones = torch.ones_like(log_std)
         z = mu + torch.normal(zeros, ones) * log_std.exp()
-
-        # x_recon =  torch.clamp(self.decoder(z), -1, 1)*0.5 + 0.5
         x_recon =  torch.clamp(self.decoder(z), -1, 1)
         return x_recon, mu, log_std
 
@@ -52,3 +34,7 @@ class VAEConvNet(nn.Module):
             samples = torch.clamp(self.decoder(z), -1, 1)
         return samples.cpu().numpy() * 0.5 + 0.5
 
+    def loss(self, x, y):
+        y_hat, z_mu, z_log_std = self.forward(x)
+        return vae_loss(y, y_hat, z_mu, z_log_std)
+    

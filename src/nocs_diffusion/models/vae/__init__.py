@@ -1,4 +1,3 @@
-from .blocks    import ConvEncoder, ConvDecoder
-from .conv_vae  import VAEConvNet
 from .loss      import vae_loss
-from .point_vae import VAEPointNetEncoder
+from .vae import VAE
+from .point_enc_conv_dec import VAEPointNetEncoderConvDecoder

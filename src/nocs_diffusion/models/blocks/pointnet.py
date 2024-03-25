@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from models.utils import ModelReturnType
+from ..utils import ModelReturnType
 
 class PointNetEncoder(nn.Module):
     def __init__(self, zdim, input_dim=3):
