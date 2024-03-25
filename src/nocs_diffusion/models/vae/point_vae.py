@@ -1,13 +1,10 @@
-from collections import OrderedDict
-import numpy as np
-
 import torch
 import torch.nn as nn
 
-import torch.nn.functional as F
-
 from models.vae import vae_loss, ConvDecoder
 from models.blocks.pointnet import PointNetEncoder
+from models.utils import ModelReturnType
+
 
 class VAEPointNetEncoder(nn.Module): 
     def __init__(self, in_dim, latent_dim, out_dim, im_size,

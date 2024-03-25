@@ -36,14 +36,16 @@ diffusion_model:
       path:  
     
     context_model:
-      _target_:   models.CloudToMaskVae
+      _target_:  models.utils.load_model
       model:
-        _target_: models.vae.VAEPointNetEncoder
-        in_dim:     3  # Point Cloud
-        out_dim:    1  # Predict Mask
-        latent_dim: ${depth_latent_size}
-        im_size:    ${image_size}
-      load_path:  /home/baldeeb/Code/nocs-diffusion/checkpoints/nocs-diffusion/depth_vae/2024-03-18_10-16-23/0000_099999.pth
+        _target_:   models.CloudToMaskVae
+        model:
+          _target_: models.vae.VAEPointNetEncoder
+          in_dim:     3  # Point Cloud
+          out_dim:    1  # Predict Mask
+          latent_dim: ${depth_latent_size}
+          im_size:    ${image_size}
+      path:  /home/baldeeb/Code/nocs-diffusion/checkpoints/nocs-diffusion/depth_vae/2024-03-18_10-16-23/0000_099999.pth
 
     scheduler: 
       _target_: diffusers.DDPMScheduler
