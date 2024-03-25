@@ -2,9 +2,9 @@
 from torch.nn.functional import normalize
 from torch import where, rand, randperm, stack
 import torch
-from utils.dataset import *
+from dataset.shapenet import *
 from utils.misc import *
-from utils.data import *
+from dataset.data import *
 
 
 

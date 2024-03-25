@@ -3,3 +3,6 @@ wandb
 data
 pretrained
 checkpoints
+.env
+.scratch
+.archive

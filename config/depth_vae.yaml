@@ -1,0 +1,26 @@
+defaults:
+  - base
+  - _self_
+
+logger:
+  name:    depth_vae
+
+# Training
+num_epochs: 100000          # Epochs to train for
+steps_before_save: 1000  # Batches before saving a checkpoint
+steps_before_eval: 100   # Batches before evaluating
+num_eval_batches: 5       # Batches to evaluate on
+
+# Models
+vae:
+  _target_:   models.CloudToMaskVae
+  model:
+    _target_: models.vae.VAEPointNetEncoder
+    in_dim:     3  # Point Cloud
+    latent_dim: 1028
+    out_dim:    1  # Predict Mask
+    im_size:    ${image_size}
+
+# Optimizer
+lr: 1e-3
+lr_warmup_steps: 50
