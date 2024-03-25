@@ -13,13 +13,16 @@ num_eval_batches: 5       # Batches to evaluate on
 
 # Models
 vae:
-  _target_:   models.CloudToMaskVae
+  _target_:  models.utils.load_model
   model:
-    _target_: models.vae.VAEPointNetEncoder
-    in_dim:     3  # Point Cloud
-    latent_dim: 1028
-    out_dim:    1  # Predict Mask
-    im_size:    ${image_size}
+    _target_:   models.CloudToMaskVae
+    model:
+      _target_: models.vae.VAEPointNetEncoderConvDecoder
+      in_dim:     3  # Point Cloud
+      latent_dim: 1028
+      out_dim:    1  # Predict Mask
+      im_size:    ${image_size}
+  path: 
 
 # Optimizer
 lr: 1e-3

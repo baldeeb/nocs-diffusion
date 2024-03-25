@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nocs_diffusion"
+version = "0.0.1"
+authors = [
+  { name="Bahaa Aldeeb", email="aldeeb.bahaa@gmail.com" },
+]
+description = "Provides tools for NOCS correction via diffusion."
+readme = "README.md"
+requires-python = ">=3.8, <=3.10"
+# classifiers = [
+#     "Programming Language :: Python :: 3",
+#     "License :: OSI Approved :: MIT License",
+#     "Operating System :: OS Independent",
+# ]
+
+[project.urls]
+Homepage = "https://github.com"
+Issues = "https://github.com"

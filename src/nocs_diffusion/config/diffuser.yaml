@@ -1,0 +1,57 @@
+defaults:
+  - base
+  - _self_
+
+logger:
+  name: diffuser
+
+# Training
+num_epochs: 100000        # Epochs to train for
+steps_before_save: 1000  # Batches before saving a checkpoint
+steps_before_eval: 100   # Batches before evaluating
+num_eval_batches: 5      # Batches to evaluate on
+
+# Models
+depth_latent_size: 1028
+# cross_attention_dim: ${depth_latent_size}
+
+diffusion_model:
+  _target_: models.utils.load_model
+  path: 
+  model: 
+    _target_: models.PointContextualized2dDiffusionModel
+    
+    diffusion_model:
+      _target_:  models.utils.load_model
+      model:
+        _target_:             diffusers.UNet2DConditionModel
+        sample_size:          cfg['image_size']
+        in_channels:          3
+        out_channels:         3
+        layers_per_block:     1
+        block_out_channels:   [128, 128, 128] # the number of output channels for each UNet block  
+        down_block_types:     ["CrossAttnDownBlock2D", "CrossAttnDownBlock2D", "CrossAttnDownBlock2D"] # regular ResNet downsampling block
+        up_block_types:       ["UpBlock2D", "UpBlock2D", "UpBlock2D"] # regular ResNet upsampling block
+        cross_attention_dim:  ${depth_latent_size}
+      path:  
+    
+    context_model:
+      _target_:  models.utils.load_model
+      model:
+        _target_:   models.CloudToMaskVae
+        model:
+          _target_: models.vae.VAEPointNetEncoderConvDecoder
+          in_dim:     3  # Point Cloud
+          out_dim:    1  # Predict Mask
+          latent_dim: ${depth_latent_size}
+          im_size:    ${image_size}
+      path:  /home/baldeeb/Code/nocs-diffusion/checkpoints/nocs-diffusion/depth_vae/2024-03-18_10-16-23/0000_099999.pth
+
+    scheduler: 
+      _target_: diffusers.DDPMScheduler
+      num_train_timesteps: 1000
+
+# Optimizer
+lr: 1e-4
+lr_warmup_steps: 50
+

@@ -1,16 +1,7 @@
-import torch
-import torch.nn.functional as F
 from torch import nn
 
 from .film import FilmLinearLayer
-from .common import ModelReturnType
- 
-class ConditionedPointNetEncoderReturnType:
-    def __init__(self, mu, var):
-        self.mu = mu
-        self.var = var
-    def __getitem__(self, i):
-        return list(self.values())[i]
+from ..utils import ModelReturnType
     
 class ConditionedPointNetEncoder(nn.Module):
     def __init__(self, zdim, in_ch=3,
