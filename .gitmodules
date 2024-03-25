@@ -1,3 +1,0 @@
-[submodule "habitat_datatools"]
-	path = habitat_datatools
-	url = git@github.com:baldeeb/habitat-datagen-util.git
