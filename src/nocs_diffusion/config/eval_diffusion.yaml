@@ -6,5 +6,5 @@ defaults:
 logger:
   name: diffusion_eval
 
-diffusion_model:
+model:
   path: /home/baldeeb/Code/nocs-diffusion/checkpoints/nocs-diffusion/diffuser/2024-03-18_10-40-17/0000_099999.pth

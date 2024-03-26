@@ -12,12 +12,12 @@ steps_before_eval: 100   # Batches before evaluating
 num_eval_batches: 5       # Batches to evaluate on
 
 # Models
-vae:
-  _target_:  models.utils.load_model
+model:
+  _target_:  nocs_diffusion.models.utils.load_model
   model:
-    _target_:   models.CloudToMaskVae
+    _target_:   nocs_diffusion.models.CloudToMaskVae
     model:
-      _target_: models.VAEPointNetEncoderConvDecoder
+      _target_: nocs_diffusion.models.VAEPointNetEncoderConvDecoder
       in_dim:     3  # Point Cloud
       latent_dim: 1028
       out_dim:    1  # Predict Mask

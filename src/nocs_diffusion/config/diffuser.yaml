@@ -13,39 +13,35 @@ num_eval_batches: 5      # Batches to evaluate on
 
 # Models
 depth_latent_size: 1028
-# cross_attention_dim: ${depth_latent_size}
 
-diffusion_model:
-  _target_: models.utils.load_model
+model:
+  _target_: nocs_diffusion.models.load_model
   path: 
   model: 
-    _target_: models.PointContextualized2dDiffusionModel
-    
+    _target_: nocs_diffusion.models.PointContextualized2dDiffusionModel
     diffusion_model:
-      _target_:  models.utils.load_model
-      model:
-        _target_:             diffusers.UNet2DConditionModel
-        sample_size:          cfg['image_size']
-        in_channels:          3
-        out_channels:         3
-        layers_per_block:     1
-        block_out_channels:   [128, 128, 128] # the number of output channels for each UNet block  
-        down_block_types:     ["CrossAttnDownBlock2D", "CrossAttnDownBlock2D", "CrossAttnDownBlock2D"] # regular ResNet downsampling block
-        up_block_types:       ["UpBlock2D", "UpBlock2D", "UpBlock2D"] # regular ResNet upsampling block
-        cross_attention_dim:  ${depth_latent_size}
-      path:  
+      _target_:             diffusers.UNet2DConditionModel
+      sample_size:          cfg['image_size']
+      in_channels:          3
+      out_channels:         3
+      layers_per_block:     1
+      block_out_channels:   [128, 128, 128] # the number of output channels for each UNet block  
+      down_block_types:     ["CrossAttnDownBlock2D", "CrossAttnDownBlock2D", "CrossAttnDownBlock2D"] # regular ResNet downsampling block
+      up_block_types:       ["UpBlock2D", "UpBlock2D", "UpBlock2D"] # regular ResNet upsampling block
+      cross_attention_dim:  ${depth_latent_size}
     
     context_model:
-      _target_:  models.utils.load_model
+      _target_:  nocs_diffusion.models.load_model
+      # When path is set, training starts from pre-trained context encoder.
+      path:  /home/baldeeb/Code/nocs-diffusion/checkpoints/nocs-diffusion/depth_vae/2024-03-18_10-16-23/0000_099999.pth
       model:
-        _target_:   models.CloudToMaskVae
+        _target_:   nocs_diffusion.models.CloudToMaskVae
         model:
-          _target_: models.VAEPointNetEncoderConvDecoder
+          _target_: nocs_diffusion.models.VAEPointNetEncoderConvDecoder
           in_dim:     3  # Point Cloud
           out_dim:    1  # Predict Mask
           latent_dim: ${depth_latent_size}
           im_size:    ${image_size}
-      path:  /home/baldeeb/Code/nocs-diffusion/checkpoints/nocs-diffusion/depth_vae/2024-03-18_10-16-23/0000_099999.pth
 
     scheduler: 
       _target_: diffusers.DDPMScheduler

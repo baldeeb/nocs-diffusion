@@ -1,4 +1,4 @@
-from utils.visualization import viz_image_batch
+from nocs_diffusion.utils import viz_image_batch
 from omegaconf import DictConfig
 import hydra
 
@@ -14,7 +14,7 @@ def visualize_sample(dataloader, model):
 @hydra.main(version_base=None, config_path='./config', config_name='eval_depth_vae')
 def run(cfg: DictConfig) -> None:
 
-    model = hydra.utils.instantiate(cfg.vae).to(cfg.device)
+    model = hydra.utils.instantiate(cfg.model).to(cfg.device)
     dataloader = hydra.utils.instantiate(cfg.dataloader).to(cfg.device)
 
     visualize_sample(dataloader, model)

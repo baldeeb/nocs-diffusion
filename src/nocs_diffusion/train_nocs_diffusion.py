@@ -10,7 +10,7 @@ from utils.train import train
 @hydra.main(version_base=None, config_path='./config', config_name='diffuser')
 def run(cfg: DictConfig) -> None:
     dataloader = hydra.utils.instantiate(cfg.dataloader).to(cfg.device)
-    model = hydra.utils.instantiate(cfg.diffusion_model).to(cfg.device)
+    model = hydra.utils.instantiate(cfg.model).to(cfg.device)
     
     # TODO: move optimizer to hydra config.
     optimizer = torch.optim.AdamW(model.diff_net.parameters(), lr=cfg.lr)
