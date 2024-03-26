@@ -1,2 +1,2 @@
 from .point_contextualized_2d_diffusion import PointContextualized2dDiffusionModel
-from .cloud_to_mask_vae import CloudToMaskVae
+from .cloud_to_mask_vae import CloudToMaskVae, VAEPointNetEncoderConvDecoder

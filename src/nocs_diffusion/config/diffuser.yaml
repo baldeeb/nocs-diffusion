@@ -40,7 +40,7 @@ diffusion_model:
       model:
         _target_:   models.CloudToMaskVae
         model:
-          _target_: models.vae.VAEPointNetEncoderConvDecoder
+          _target_: models.VAEPointNetEncoderConvDecoder
           in_dim:     3  # Point Cloud
           out_dim:    1  # Predict Mask
           latent_dim: ${depth_latent_size}
