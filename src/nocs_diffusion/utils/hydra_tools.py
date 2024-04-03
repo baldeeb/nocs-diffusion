@@ -1,6 +1,8 @@
+import os
 import hydra
-from hydra import compose, initialize
+from pathlib import Path
 from omegaconf import OmegaConf
+from hydra import compose, initialize
 
 
 class ConfigLoader:
@@ -14,6 +16,12 @@ class ConfigLoader:
         self._model = None
         self._dataloader = None
         
+    @staticmethod
+    def from_config_path(path):
+        cfg_path = Path(path)
+        rel_path = os.path.relpath(str(cfg_path.parent), str(Path(__file__).parent))
+        return ConfigLoader(config_name=str(cfg_path.name), 
+                            config_path=str(rel_path))
     @property
     def model(self):
         if self._model is None:
