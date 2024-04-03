@@ -4,7 +4,7 @@ from omegaconf import DictConfig
 import torch
 from diffusers.optimization import get_cosine_schedule_with_warmup
 
-from utils.train import train
+from nocs_diffusion.utils.train import train
 
 
 @hydra.main(version_base=None, config_path='./config', config_name='diffuser')

@@ -3,7 +3,7 @@ import torch
 from omegaconf import DictConfig
 import hydra
 
-from utils.train import train
+from nocs_diffusion.utils.train import train
 from diffusers.optimization import get_cosine_schedule_with_warmup
 
 

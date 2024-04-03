@@ -4,7 +4,7 @@ import os
 from tqdm import tqdm
 import pathlib as pl
 
-from utils.load_save import save_model
+from .load_save import save_model
 
 
 def train(cfg, model, optimizer, lr_scheduler, dataloader):

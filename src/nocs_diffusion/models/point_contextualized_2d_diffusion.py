@@ -31,7 +31,7 @@ class PointContextualized2dDiffusionModel(torch.nn.Module):
         return self.scheduler.add_noise(images, noise, timesteps)
 
     def forward(self, **data):
-        ctxt = self.ctxt_net(data['face_points']).mu[:, None]
+        ctxt = self.ctxt_net(data['face_points']).mu
         return self.diff_net(data['noisy_images'], data['timesteps'], ctxt).sample
         
     def loss(self, **data):

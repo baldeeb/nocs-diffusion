@@ -43,9 +43,12 @@ class PointNetEncoder(nn.Module):
         m = F.relu(self.fc_bn1_m(self.fc1_m(x)))
         m = F.relu(self.fc_bn2_m(self.fc2_m(m)))
         m = self.fc3_m(m)
+        m = m[:, None] # retain ndims
         v = F.relu(self.fc_bn1_v(self.fc1_v(x)))
         v = F.relu(self.fc_bn2_v(self.fc2_v(v)))
         v = self.fc3_v(v)
+        v = v[:, None] # retain ndims
+
 
         # Returns both mean and logvariance, just ignore the latter in deteministic cases.
         return ModelReturnType(mu=m, var=v)
