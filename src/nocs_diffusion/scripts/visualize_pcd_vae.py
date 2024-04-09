@@ -11,7 +11,7 @@ def visualize_sample(dataloader, model):
     viz_image_batch(as_np(y_hat), title='Reconstructed')
 
 
-@hydra.main(version_base=None, config_path='./config', config_name='eval_depth_vae')
+@hydra.main(version_base=None, config_path='../config', config_name='eval_depth_vae')
 def run(cfg: DictConfig) -> None:
 
     model = hydra.utils.instantiate(cfg.model).to(cfg.device)

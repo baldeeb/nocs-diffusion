@@ -11,11 +11,20 @@ authors = [
 description = "Provides tools for NOCS correction via diffusion."
 readme = "README.md"
 requires-python = ">=3.8, <=3.10"
-# classifiers = [
-#     "Programming Language :: Python :: 3",
-#     "License :: OSI Approved :: MIT License",
-#     "Operating System :: OS Independent",
-# ]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+  "torch (>=2.0.0)",
+  "pytorch3d",
+  "h5py",
+  "matplotlib",
+  "omegaconf",
+  "hydra-core",
+  "diffusers"
+]
 
 [project.urls]
 Homepage = "https://github.com"

@@ -17,7 +17,7 @@ def visualize(dataloader, model):
     viz_image_batch(as_np(fixed_images), title='Fixed')
 
 
-@hydra.main(version_base=None, config_path='./config', config_name='eval_diffusion')
+@hydra.main(version_base=None, config_path='../config', config_name='eval_diffusion')
 def run(cfg: DictConfig) -> None:
     dataloader = hydra.utils.instantiate(cfg.dataloader).to(cfg.device)
     model = hydra.utils.instantiate(cfg.model).to(cfg.device)
