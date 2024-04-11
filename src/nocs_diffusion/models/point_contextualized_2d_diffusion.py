@@ -15,7 +15,7 @@ class PointContextualized2dDiffusionModel(torch.nn.Module):
         noisy = data['noisy_images'].clone().detach()
         points = data['face_points']
 
-        ctxt = self.ctxt_net(points).mu[:, None]
+        ctxt = self.ctxt_net(points).mu
         for t in self.scheduler.timesteps:
             with torch.no_grad():
                 res = self.diff_net(noisy, t, ctxt).sample

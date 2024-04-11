@@ -23,7 +23,8 @@ dependencies = [
   "matplotlib",
   "omegaconf",
   "hydra-core",
-  "diffusers"
+  "diffusers",
+  "wandb"
 ]
 
 [project.urls]

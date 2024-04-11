@@ -1,10 +1,9 @@
 defaults:
-  - depth_vae
+  - train_depth_vae
   - _self_
 
 logger:
-  name:    depth_vae_eval
+  name:  eval_depth_vae
 
-# Load Models
 model:
-  path: /home/baldeeb/Code/nocs-diffusion/checkpoints/nocs-diffusion/depth_vae/2024-03-18_10-16-23/0000_099999.pth
+  path: /home/baldeeb/Code/nocs-diffusion/checkpoints/nocs-diffusion/depth_vae/2024-04-11_10-47-08/0000_099999.pth

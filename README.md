@@ -11,8 +11,9 @@ Before this is installed as a library, run the following:
 ```
 mamba create -n <env-name> python=<3.8, 3.9, 3.10>
 mamba activate
-pip install torch==2.2.1 torchvision==0.17.1 torchaudio==2.2.1
-pip install "git+https://github.com/facebookresearch/pytorch3d.git"
+mamba install pytorch=2.1.0 torchvision pytorch-cuda=11.8 -c pytorch -c nvidia
+mamba install -c fvcore -c iopath -c conda-forge fvcore iopath
+mamba install pytorch3d -c pytorch3d
 pip install -e .
 ```
 NOTE: Torch installation is separate from this package's toml setup is due to [difficulties in pytorch3d setup](https://github.com/facebookresearch/pytorch3d/issues/1419)

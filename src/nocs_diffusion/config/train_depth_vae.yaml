@@ -3,7 +3,7 @@ defaults:
   - _self_
 
 logger:
-  name:    depth_vae
+  name:    train_depth_vae
 
 # Training
 num_epochs: 100000          # Epochs to train for

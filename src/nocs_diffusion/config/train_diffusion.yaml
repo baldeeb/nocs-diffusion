@@ -3,7 +3,7 @@ defaults:
   - _self_
 
 logger:
-  name: diffuser
+  name: train_diffusion
 
 # Training
 num_epochs: 100000        # Epochs to train for
@@ -33,7 +33,7 @@ model:
     context_model:
       _target_:  nocs_diffusion.models.load_model
       # When path is set, training starts from pre-trained context encoder.
-      path:  /home/baldeeb/Code/nocs-diffusion/checkpoints/nocs-diffusion/depth_vae/2024-03-18_10-16-23/0000_099999.pth
+      path: /home/baldeeb/Code/nocs-diffusion/checkpoints/nocs-diffusion/depth_vae/2024-04-11_10-47-08/0000_099999.pth
       model:
         _target_:   nocs_diffusion.models.CloudToMaskVae
         model:
