@@ -1,4 +1,4 @@
-from nocs_diffusion.utils import viz_image_batch, ConfigDirectoriesManager, ConfigLoader
+from nocs_diffusion import viz_image_batch, ConfigDirectoriesManager, ConfigLoader
 
 def visualize(dataloader, model):
     as_np = lambda x: (x/2 + 0.5).permute(0,2,3,1).detach().cpu().numpy()
