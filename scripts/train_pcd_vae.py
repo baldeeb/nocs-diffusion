@@ -13,7 +13,7 @@ if __name__ == '__main__':
     lr_scheduler = get_cosine_schedule_with_warmup(
         optimizer=optimizer,
         num_warmup_steps=loader.cfg.lr_warmup_steps,
-        num_training_steps=(loader.cfg.num_epochs),
+        num_training_steps=(loader.cfg.num_steps),
     )
     train(loader.cfg, model, optimizer, lr_scheduler, dataloader)
     

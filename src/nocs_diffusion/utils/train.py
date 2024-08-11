@@ -17,7 +17,7 @@ def train(cfg, model, optimizer, lr_scheduler, dataloader):
     else: log = lambda _: None
 
     epoch = 0
-    batch_tqdm = tqdm(range(cfg.num_epochs), 
+    batch_tqdm = tqdm(range(cfg.num_steps), 
                       desc='Training Step Loop')
     for batch_i in batch_tqdm:
         log({'step': batch_i+1})

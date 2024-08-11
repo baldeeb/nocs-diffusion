@@ -6,7 +6,7 @@ logger:
   name: train_diffusion
 
 # Training
-num_epochs: 100000        # Epochs to train for
+num_steps: 100000        # Epochs to train for
 steps_before_save: 1000  # Batches before saving a checkpoint
 steps_before_eval: 100   # Batches before evaluating
 num_eval_batches: 5      # Batches to evaluate on
@@ -33,7 +33,7 @@ model:
     context_model:
       _target_:  nocs_diffusion.models.load_model
       # When path is set, training starts from pre-trained context encoder.
-      path: /home/baldeeb/Code/nocs-diffusion/checkpoints/nocs-diffusion/depth_vae/2024-04-11_10-47-08/0000_099999.pth
+      path: /workspace/nocs-diffusion/checkpoints/nocs-diffusion/train_depth_vae/2024-06-29_15-17-49/0000_099999.pth
       model:
         _target_:   nocs_diffusion.models.CloudToMaskVae
         model:

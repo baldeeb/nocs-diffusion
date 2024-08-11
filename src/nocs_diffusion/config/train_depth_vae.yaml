@@ -6,7 +6,7 @@ logger:
   name:    train_depth_vae
 
 # Training
-num_epochs: 100000          # Epochs to train for
+num_steps: 100000          # Epochs to train for
 steps_before_save: 1000  # Batches before saving a checkpoint
 steps_before_eval: 100   # Batches before evaluating
 num_eval_batches: 5       # Batches to evaluate on
