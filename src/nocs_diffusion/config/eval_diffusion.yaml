@@ -3,7 +3,7 @@ defaults:
   - _self_
 
 
-log_locally: true
+# log_locally: true
 logger:
   name: eval_diffusion
 

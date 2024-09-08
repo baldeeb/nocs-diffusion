@@ -3,7 +3,7 @@ log: true                 # Whether to push logs to wandb
 log_locally: false
 logger:
   project: nocs-diffusion
-  entity:  rpm-collab
+  entity:  baldeeb
   name:    base
 
 checkpoint_dir: ./checkpoints/${logger.project}/${logger.name}/${now:%Y-%m-%d_%H-%M-%S}
