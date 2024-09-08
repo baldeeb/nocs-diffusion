@@ -2,47 +2,60 @@ import numpy as np
 import torch.nn as nn
 
 
+'''
+This class upsizes by linearly projecting an image to a certain shape 
+    then doubling for len(layer_dims - 1) times.
+'''
 class ConvDecoder(nn.Module):
-    def __init__(self, latent_dim, output_shape):
+    def __init__(self, in_dim, layer_dims, out_dim, out_image_size):
         super().__init__()
-        self.latent_dim = latent_dim
-        self.output_shape = output_shape
+        assert len(layer_dims) > 2
+        self.in_dim = in_dim  # dim of the embedding
+        self.layer_dims = layer_dims
+        self.out_dim = out_dim
+        self.image_size = out_image_size
 
-        self.base_size = (128, output_shape[1] // 8, output_shape[2] // 8)
-        self.fc = nn.Linear(latent_dim, np.prod(self.base_size))
-        self.deconvs = nn.Sequential(
+        # shape of the image linearly projected from latent before deconv. 
+        base_im_size = out_image_size // 2**(len(layer_dims) - 1)
+        self.base_shape = (self.layer_dims[0], base_im_size, base_im_size)
+        
+        # layer projecting latent to image
+        self.fc = nn.Linear(in_dim, np.prod(self.base_shape))
+
+        # deconv layers
+        self.deconvs = []
+        for l_in, l_out in zip(self.layer_dims[:-1], self.layer_dims[1:]):
+            self.deconvs.extend([
+                nn.ReLU(),
+                nn.ConvTranspose2d(l_in, l_out, 4, stride=2, padding=1),
+            ])
+        self.deconvs.extend([
             nn.ReLU(),
-            nn.ConvTranspose2d(128, 128, 4, stride=2, padding=1),
-            nn.ReLU(),
-            nn.ConvTranspose2d(128, 64, 4, stride=2, padding=1),
-            nn.ReLU(),
-            nn.ConvTranspose2d(64, 32, 4, stride=2, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(32, output_shape[0], 3, padding=1),
-        )
+            nn.Conv2d(layer_dims[-1], out_dim, 3, padding=1)
+        ])
+        self.deconvs = nn.Sequential(*self.deconvs)
 
     def forward(self, z):
         out = self.fc(z).contiguous()
-        out = out.view(out.shape[0], *self.base_size)
+        out = out.view(out.shape[0], *self.base_shape)
         out = self.deconvs(out)
         return out
 
 class ConvEncoder(nn.Module):
-    def __init__(self, input_shape, latent_dim):
+    def __init__(self, layer_dims, in_image_size):
         super().__init__()
-        self.input_shape = input_shape
-        self.latent_dim = latent_dim
-        self.convs = nn.Sequential(
-            nn.Conv2d(input_shape[0], 32, 3, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(32, 64, 3, stride=2, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(64, 128, 3, stride=2, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(128, 256, 3, stride=2, padding=1),
-        )
-        conv_out_dim = input_shape[1] // 8 * input_shape[2] // 8 * 256
-        self.fc = nn.Linear(conv_out_dim, 2 * latent_dim)
+        self.image_size = in_image_size
+        self.layer_dims = layer_dims
+        
+        self.convs = []
+        for l0, l1 in zip(layer_dims[:-1], layer_dims[1:]):
+            self.convs.extend([
+                nn.Conv2d(l0, l1, 3, padding=1),
+                nn.ReLU()
+            ])
+        self.convs = nn.Sequential(*self.convs)
+        conv_out_dim = layer_dims * (in_image_size // 8 )**2 
+        self.fc = nn.Linear(conv_out_dim, 2 * layer_dims[-1])
 
     def forward(self, x):
         out = self.convs(x).contiguous()

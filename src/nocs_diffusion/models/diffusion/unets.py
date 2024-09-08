@@ -2,16 +2,16 @@ import torch
 from diffusers import UNet2DModel, UNet2DConditionModel
 
 UNET_DEFAULTS = {
-    'block_out_channels': (128, 128, 128), # the number of output channels for each UNet block
-    'down_block_types': ("DownBlock2D", "DownBlock2D", "DownBlock2D",), # regular ResNet downsampling block
-    'up_block_types': ("UpBlock2D", "UpBlock2D", "UpBlock2D",), # regular ResNet upsampling block
-    'cross_attention_dim': 1280,
+    'block_out_channels': (128, 128), # the number of output channels for each UNet block
+    'down_block_types': ("CrossAttnDownBlock2D", "CrossAttnDownBlock2D"), # regular ResNet downsampling block
+    'up_block_types': ("CrossAttnUpBlock2D", "CrossAttnUpBlock2D"), # regular ResNet upsampling block
+    'cross_attention_dim': 512,
 }
 CONDITIONED_UNET_DEFAULTS = {
-    'block_out_channels': (128, 128, 128), # the number of output channels for each UNet block
-    'down_block_types': ("CrossAttnDownBlock2D", "CrossAttnDownBlock2D", "CrossAttnDownBlock2D",), # regular ResNet downsampling block
-    'up_block_types': ("UpBlock2D", "UpBlock2D", "UpBlock2D",), # regular ResNet upsampling block
-    'cross_attention_dim': 1280,
+    'block_out_channels': (128, 128), # the number of output channels for each UNet block
+    'down_block_types': ("CrossAttnDownBlock2D", "CrossAttnDownBlock2D"), # regular ResNet downsampling block
+    'up_block_types': ("CrossAttnUpBlock2D", "CrossAttnUpBlock2D"), # regular ResNet upsampling block
+    'cross_attention_dim': 512,
 }
 
 def get_unet(cfg):

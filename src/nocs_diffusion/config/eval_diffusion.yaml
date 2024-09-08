@@ -6,4 +6,4 @@ logger:
   name: eval_diffusion
 
 model:
-  path: /home/baldeeb/Code/nocs-diffusion/checkpoints/nocs-diffusion/diffuser/2024-04-11_11-15-42/0000_099999.pth
+  path: /home/baldeeb/Code/nocs-diffusion/checkpoints/nocs-diffusion/train_diffusion/2024-09-07_12-58-39/0000_038000.pth

@@ -1,54 +1,28 @@
 import torch
-import torch.nn.functional as F
 from torch import nn
-
+from .linear_blocks import SetLinearHead, LinearHead 
 from ..utils import ModelReturnType
+from typing import List
 
 class PointNetEncoder(nn.Module):
-    def __init__(self, zdim, input_dim=3):
+    def __init__(self, in_dim:int, layer_dims:List, out_dim:int):
         super().__init__()
-        self.zdim = zdim
-        self.conv1 = nn.Conv1d(input_dim, 128, 1)
-        self.conv2 = nn.Conv1d(128, 128, 1)
-        self.conv3 = nn.Conv1d(128, 256, 1)
-        self.conv4 = nn.Conv1d(256, 512, 1)
-        self.bn1 = nn.BatchNorm1d(128)
-        self.bn2 = nn.BatchNorm1d(128)
-        self.bn3 = nn.BatchNorm1d(256)
-        self.bn4 = nn.BatchNorm1d(512)
+        self.in_dim = in_dim
+        self.latent_dims = layer_dims
+        self.out_dim = out_dim
 
-        # Mapping to [c], cmean
-        self.fc1_m = nn.Linear(512, 256)
-        self.fc2_m = nn.Linear(256, 128)
-        self.fc3_m = nn.Linear(128, zdim)
-        self.fc_bn1_m = nn.BatchNorm1d(256)
-        self.fc_bn2_m = nn.BatchNorm1d(128)
-
-        # Mapping to [c], cmean
-        self.fc1_v = nn.Linear(512, 256)
-        self.fc2_v = nn.Linear(256, 128)
-        self.fc3_v = nn.Linear(128, zdim)
-        self.fc_bn1_v = nn.BatchNorm1d(256)
-        self.fc_bn2_v = nn.BatchNorm1d(128)
+        self.point_proj = SetLinearHead([self.in_dim] + layer_dims, post_bn=True)
+        self.mu_head    = LinearHead(layer_dims[::-1] + [self.out_dim])
+        self.var_head   = LinearHead(layer_dims[::-1] + [self.out_dim])
 
     def forward(self, x):
         x = x.transpose(1, 2)
-        x = F.relu(self.bn1(self.conv1(x)))
-        x = F.relu(self.bn2(self.conv2(x)))
-        x = F.relu(self.bn3(self.conv3(x)))
-        x = self.bn4(self.conv4(x))
+        x = self.point_proj(x)
         x = torch.max(x, 2, keepdim=True)[0]
-        x = x.view(-1, 512)
+        x = x.view(-1, self.latent_dims[-1])
 
-        m = F.relu(self.fc_bn1_m(self.fc1_m(x)))
-        m = F.relu(self.fc_bn2_m(self.fc2_m(m)))
-        m = self.fc3_m(m)
-        m = m[:, None] # retain ndims
-        v = F.relu(self.fc_bn1_v(self.fc1_v(x)))
-        v = F.relu(self.fc_bn2_v(self.fc2_v(v)))
-        v = self.fc3_v(v)
-        v = v[:, None] # retain ndims
-
+        m = self.mu_head(x)[:, None]
+        v = self.var_head(x)[:, None]
 
         # Returns both mean and logvariance, just ignore the latter in deteministic cases.
         return ModelReturnType(mu=m, var=v)

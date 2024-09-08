@@ -6,4 +6,6 @@ logger:
   name:  eval_depth_vae
 
 model:
-  path: /home/baldeeb/Code/nocs-diffusion/checkpoints/nocs-diffusion/depth_vae/2024-04-11_10-47-08/0000_099999.pth
+  # path: /home/baldeeb/Code/nocs-diffusion/checkpoints/nocs-diffusion/depth_vae/2024-04-11_10-47-08/0000_099999.pth
+  # path: /home/baldeeb/Code/nocs-diffusion/checkpoints/nocs-diffusion/train_depth_vae/2024-05-03_15-57-20/0000_009999.pth
+  path: /home/baldeeb/Code/nocs-diffusion/checkpoints/nocs-diffusion/train_depth_vae/2024-05-07_21-01-28/0000_009999.pth
