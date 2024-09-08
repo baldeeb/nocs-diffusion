@@ -12,6 +12,7 @@ dataloader:
 num_epochs: 50000          # Epochs to train for
 steps_before_save: 100  # Batches before saving a checkpoint
 steps_before_eval: 50   # Batches before evaluating
+
 num_eval_batches: 5       # Batches to evaluate on
 
 # Models

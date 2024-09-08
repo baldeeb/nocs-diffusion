@@ -1,6 +1,6 @@
 
-log: false                 # Whether to push logs to wandb
-log_locally: true
+log: true                 # Whether to push logs to wandb
+log_locally: false
 logger:
   project: nocs-diffusion
   entity:  rpm-collab

@@ -2,8 +2,11 @@ defaults:
   - train_diffusion
   - _self_
 
+
+log_locally: true
 logger:
   name: eval_diffusion
 
 model:
   path: /home/baldeeb/Code/nocs-diffusion/checkpoints/nocs-diffusion/train_diffusion/2024-09-07_12-58-39/0000_038000.pth
+  # path: /workspace/nocs-diffusion/checkpoints/nocs-diffusion/train_diffusion/2024-06-30_10-59-09/0000_021000.pth
