@@ -1,12 +1,27 @@
 defaults:
-  - train_diffusion
+  - logging
+  - dataloader: shapenet
+  - model@model.model: nocs_diffuser
   - _self_
 
+device: cuda:0
 
 # log_locally: true
 logger:
   name: eval_diffusion
 
+# Model
+depth_latent_size: ${model.diffusion_model.cross_attention_dim}
 model:
+  _target_:  nocs_diffusion.models.load_model
+  # model: loaded in defaults
+
   path: /home/baldeeb/Code/nocs-diffusion/checkpoints/nocs-diffusion/train_diffusion/2024-09-07_12-58-39/0000_038000.pth
   # path: /workspace/nocs-diffusion/checkpoints/nocs-diffusion/train_diffusion/2024-06-30_10-59-09/0000_021000.pth
+
+# Data
+image_size: ${dataloader.renderer.image_size}
+
+
+
+

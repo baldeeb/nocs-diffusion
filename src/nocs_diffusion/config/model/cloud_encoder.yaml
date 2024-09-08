@@ -1,0 +1,14 @@
+_target_:   nocs_diffusion.models.CloudToMaskVae
+model:
+  _target_: nocs_diffusion.models.VAE
+  encoder: 
+    _target_: nocs_diffusion.models.blocks.PointNetEncoder 
+    in_dim: 3  # Given xyz points
+    layer_dims: [64, 128, 256, 512]
+    out_dim: 1028  # Predict latent
+  decoder:
+    _target_: nocs_diffusion.models.blocks.ConvDecoder
+    in_dim:  1028  # Given latent
+    layer_dims: [512, 256, 128, 64]
+    out_dim:    1  # Predict Mask 
+    out_image_size: ${image_size}

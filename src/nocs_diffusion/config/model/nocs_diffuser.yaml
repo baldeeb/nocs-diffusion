@@ -1,0 +1,27 @@
+defaults:
+  - _self_
+  - .@context_model.model: cloud_encoder
+
+_target_: nocs_diffusion.models.PointContextualized2dDiffusionModel
+diffusion_model:
+  _target_:             diffusers.UNet2DConditionModel
+  sample_size:          cfg['image_size']
+  in_channels:          3
+  out_channels:         3
+  layers_per_block:     1
+  block_out_channels:   [128, 128, 128] # the number of output channels for each UNet block  
+  down_block_types:     ["CrossAttnDownBlock2D", "CrossAttnDownBlock2D", "CrossAttnDownBlock2D"] # regular ResNet downsampling block
+  up_block_types:       ["UpBlock2D", "UpBlock2D", "UpBlock2D"] # regular ResNet upsampling block
+  cross_attention_dim:  1028
+
+
+context_model:
+  _target_:  nocs_diffusion.models.load_model
+  # When path is set, training starts from pre-trained context encoder. 
+  path: /home/baldeeb/Code/nocs-diffusion/checkpoints/nocs-diffusion/train_depth_vae/2024-05-07_21-01-28/0000_009999.pth
+  # path: /workspace/nocs-diffusion/checkpoints/nocs-diffusion/train_depth_vae/2024-06-29_15-17-49/0000_099999.pth
+  # model: # Model loaded in defaults
+
+scheduler: 
+  _target_: diffusers.DDPMScheduler
+  num_train_timesteps: 1000

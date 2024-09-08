@@ -1,0 +1,40 @@
+defaults:
+  - base
+  - _self_
+
+logger:
+  name:    train_depth_vae
+
+# Training
+dataloader:
+  renderer:
+    batch_size: 64
+num_epochs: 50000          # Epochs to train for
+steps_before_save: 100  # Batches before saving a checkpoint
+steps_before_eval: 50   # Batches before evaluating
+
+num_eval_batches: 5       # Batches to evaluate on
+
+# Models
+model:
+  _target_:  nocs_diffusion.models.utils.load_model
+  model:
+    _target_:   nocs_diffusion.models.CloudToMaskVae
+    model:
+      _target_: nocs_diffusion.models.VAE
+      encoder: 
+        _target_: nocs_diffusion.models.blocks.PointNetEncoder 
+        in_dim: 3  # Given xyz points
+        layer_dims: [64, 128, 256, 512]
+        out_dim: 1028  # Predict latent
+      decoder:
+        _target_: nocs_diffusion.models.blocks.ConvDecoder
+        in_dim:  1028  # Given latent
+        layer_dims: [512, 256, 128, 64]
+        out_dim:    1  # Predict Mask 
+        out_image_size: ${image_size}
+  path: 
+
+# Optimizer
+lr: 1e-3
+lr_warmup_steps: 50

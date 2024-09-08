@@ -1,0 +1,12 @@
+log: true                 # Whether to push logs to wandb
+log_locally: false
+logger:
+  project: nocs-diffusion
+  entity:  baldeeb
+  name:    train_diffusion
+
+checkpoint_dir: ./checkpoints/${logger.project}/${logger.name}/${now:%Y-%m-%d_%H-%M-%S}
+retain_n_checkpoints: 2   # Checkpoints to retain
+hydra:
+    run:
+        dir: ${checkpoint_dir}

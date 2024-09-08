@@ -1,22 +1,3 @@
-
-log: true                 # Whether to push logs to wandb
-log_locally: false
-logger:
-  project: nocs-diffusion
-  entity:  baldeeb
-  name:    base
-
-checkpoint_dir: ./checkpoints/${logger.project}/${logger.name}/${now:%Y-%m-%d_%H-%M-%S}
-retain_n_checkpoints: 2   # Checkpoints to retain
-hydra:
-    run:
-        dir: ${checkpoint_dir}
-
-device: cuda:0
-
-# Data
-image_size: 32
-dataloader:
   _target_: nocs_diffusion.dataset.ShapeNetDataloader
   renderer:
     _target_: nocs_diffusion.dataset.ShapeNetRenderer.build
@@ -26,7 +7,7 @@ dataloader:
     split: test
     num_objects:    # count of objects to use, None implies all
     batch_size: 18     # count of poses from which to view object
-    image_size: ${image_size}
+    image_size: 32
     shuffle: true     # whether to shuffle when choosing objects
     scale_mode: 
     post_process:
