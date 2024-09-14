@@ -20,6 +20,10 @@ num_eval_batches: 5      # Batches to evaluate on
 
 # Models
 depth_latent_size: ${model.diffusion_model.cross_attention_dim}
+model:
+  context_model:
+    path: /workspace/nocs-diffusion/checkpoints/nocs-diffusion/train_depth_vae/2024-09-14_16-40-40/0000_006300.pth
+
 
 # Optimizer
 lr: 1e-4
