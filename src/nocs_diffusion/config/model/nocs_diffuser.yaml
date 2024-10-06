@@ -14,13 +14,13 @@ diffusion_model:
   up_block_types:       ["UpBlock2D", "UpBlock2D", "UpBlock2D"] # regular ResNet upsampling block
   cross_attention_dim:  1028
 
-
 context_model:
   _target_:  nocs_diffusion.models.load_model
   # model: # Model loaded in defaults
   # When path is set, training starts from pre-trained context encoder. 
   path: # Expected to be set to train nocs_diffuser
 
+# Source Doc: https://huggingface.co/docs/diffusers/en/api/schedulers/ddpm
 scheduler: 
   _target_: diffusers.DDPMScheduler
-  num_train_timesteps: 1000
+  num_train_timesteps: 300

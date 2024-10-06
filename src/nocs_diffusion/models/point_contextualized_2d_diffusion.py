@@ -28,7 +28,7 @@ class PointContextualized2dDiffusionModel(torch.nn.Module):
     def add_noise(self, images):
         timesteps = self.sample_timesteps(len(images), images.device)
         noise = torch.randn_like(images)
-        return self.scheduler.add_noise(images, noise, timesteps)
+        return self.scheduler.add_noise(images, noise, timesteps).clamp(-1.0, 1.0)
 
     def forward(self, **data):
         ctxt = self.ctxt_net(data['face_points']).mu
