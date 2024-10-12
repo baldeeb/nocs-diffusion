@@ -65,7 +65,8 @@ class Torch3DRendererWrapper(nn.Module):
                  znear=0.01,
                  dist_range=[0.8, 1.5], 
                  elev_range=[0, 360], 
-                 azim_range=[0, 360]
+                 azim_range=[0, 360],
+                 **kwargs
                 ):
         self._aspect_ratio = aspect_ratio
         self._fov = cam_fov

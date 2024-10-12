@@ -6,6 +6,9 @@ defaults:
 
 device: cuda:0
 
+log: false
+log_locally: true
+
 logger:
   name:  eval_depth_vae
 

@@ -79,7 +79,7 @@ class ShapeNetRenderer:
                                 cates=categories,
                                 split=split,
                                 scale_mode=scale_mode)
-        renderer = Torch3DRendererWrapper(image_size=image_size)
+        renderer = Torch3DRendererWrapper(image_size=image_size, **kwargs)
         
         cates_to_ids = {c:i for c, i in zip(categories, category_ids)}
         return ShapeNetRenderer(dataset=dataset, 
