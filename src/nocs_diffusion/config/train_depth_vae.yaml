@@ -2,10 +2,10 @@ defaults:
   - logging
   - model: cloud_encoder
   - dataloader: shapenet
+  - .@eval.dataloader: dataloader/shapenet
   - _self_
 
 device: cuda:0
-
 logger:
   name:    train_depth_vae
 
@@ -13,15 +13,23 @@ logger:
 image_size: ${dataloader.renderer.image_size}
 dataloader:
   renderer:
+    split: train
     batch_size: 64
 
 # Training
 num_steps: 50000          # Epochs to train for
-steps_before_save: 100  # Batches before saving a checkpoint
-steps_before_eval: 50   # Batches before evaluating
-num_eval_batches: 5       # Batches to evaluate on
+steps_before_save: 200  # Batches before saving a checkpoint
 
-# Models: loaded in defaults
+# Evaluator 
+steps_before_val: 50   # Batches before evaluating
+eval:
+  _target_: nocs_diffusion.models.CloudToMaskVaeValidator
+  device: ${device}
+  num_eval_batches: 5       # Batches to evaluate on
+  dataloader: 
+    renderer:
+      split: test
+      batch_size: 8
 
 # Optimizer
 lr: 1e-3

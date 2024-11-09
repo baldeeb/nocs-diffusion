@@ -1,4 +1,4 @@
-from .shapenet import ShapeNetCore
+from .shapenet.shapenet import ShapeNetCore
 from .data import DataLoader, get_data_iterator
 
 

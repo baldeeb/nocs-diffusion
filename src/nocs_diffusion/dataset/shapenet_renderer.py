@@ -1,4 +1,4 @@
-from .shapenet import ShapeNetCore, cate_to_synsetid
+from .shapenet.shapenet import ShapeNetCore, cate_to_synsetid
 from .renderer import Torch3DRendererWrapper, sample_transforms, mask_from_depth
 from .renderer_tools import sample_from_clouds
 from .nocs_tools import nocs_extractor

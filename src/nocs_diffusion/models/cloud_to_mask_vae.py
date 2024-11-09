@@ -1,22 +1,8 @@
 import torch
 from .vae import VAE
 from .blocks import PointNetEncoder, ConvDecoder
+import wandb
 
-# TODO: fix up this function. Currently not in use.
-class VAEPointNetEncoderConvDecoder(VAE): 
-    def __init__(self, in_dim, latent_dim, out_dim, im_size,
-                load_path=None):
-        
-        super().__init__(
-            PointNetEncoder(in_dim=in_dim, 
-                            layer_dims=[128, 256, 512],  # TODO: move to config.
-                            out_dim=latent_dim),
-            ConvDecoder(in_dim=latent_dim, 
-                        layer_dims=[128, 64, 32],  # TODO: move to config.
-                        out_dim=out_dim, 
-                        out_image_size=im_size)
-        )
-        if load_path: self.load_state_dict(torch.load(load_path))
 
 class CloudToMaskVae(torch.nn.Module):
         def __init__(self, model:VAE):
@@ -34,3 +20,20 @@ class CloudToMaskVae(torch.nn.Module):
         
         def loss(self, **data):
             return self.net.loss(data['face_points'], data['masks'])
+        
+class CloudToMaskVaeValidator:
+    def __init__(self, dataloader, device='cuda', num_eval_batches=1):
+        self.dataloader = dataloader.to(device)
+        self.num_eval_batches = num_eval_batches
+    
+    def _as_np(self, x): 
+        return (x/2 + 0.5).permute(0,2,3,1).detach().cpu().numpy()
+
+    def __call__(self, model, log):
+        for _ in range(self.num_eval_batches):
+            d = self.dataloader()
+            y_hat, _, _, = model(**d)
+            log({"ground_truth": wandb.Image(d['masks']),
+                 "predicted": wandb.Image(y_hat),
+                 "validation loss": model.loss(**d)})
+     

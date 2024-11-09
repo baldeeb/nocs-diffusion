@@ -7,7 +7,7 @@ import pathlib as pl
 from .load_save import save_model
 
 
-def train(cfg, model, optimizer, lr_scheduler, dataloader):
+def train(cfg, model, optimizer, lr_scheduler, dataloader, eval=None):
 
     # Logger
     if cfg.log: 
@@ -35,6 +35,9 @@ def train(cfg, model, optimizer, lr_scheduler, dataloader):
             batch_tqdm.set_description(f'Saving batch {batch_i}, loss {loss["loss"]:.2f}')
             save_model(model, pl.Path(cfg.checkpoint_dir), epoch, batch_i,
                         retain_n=cfg.get('retain_n_checkpoints', None))
+            
+        if eval is not None and cfg.steps_before_val and (batch_i % cfg.steps_before_val) == 0:
+            eval(model, log)
 
     save_model(model, pl.Path(cfg.checkpoint_dir), epoch, batch_i,
                 retain_n=cfg.get('retain_n_checkpoints', None))
