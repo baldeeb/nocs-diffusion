@@ -19,8 +19,7 @@ class VAE(nn.Module):
 
 
     def forward(self, x):
-        # Normalize the input to [-1, 1]
-        x = 2*x - 1
+        x = 2*x - 1  # Normalize the input to [-1, 1]
         (mu, log_std) = self.encoder(x)
         zeros = torch.zeros_like(mu)
         ones = torch.ones_like(log_std)
@@ -36,5 +35,5 @@ class VAE(nn.Module):
 
     def loss(self, x, y):
         y_hat, z_mu, z_log_std = self.forward(x)
-        return vae_loss(y, y_hat, z_mu, z_log_std)
+        return vae_loss(2*y-1, y_hat, z_mu, z_log_std)
     

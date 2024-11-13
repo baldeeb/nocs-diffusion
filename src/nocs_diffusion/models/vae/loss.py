@@ -1,17 +1,12 @@
 from collections import OrderedDict
-import numpy as np
-
-import torch
-import torch.nn as nn
-
 import torch.nn.functional as F
 
 def vae_loss(x, x_recon, mu, log_std): 
     """
     Loss function for VAE
     Input: 
-    - x: original image
-    - x_recon: reconstructed image from VAE model
+    - x: original image with pixel range of [-1 to 1]
+    - x_recon: reconstructed image from VAE model with pixel range of [-1 to 1]
     - mu: mean vector of approximate posterior
     - log_std: variance vector in log space. 
 
@@ -23,7 +18,6 @@ def vae_loss(x, x_recon, mu, log_std):
     over batch dimension and sum over the feature dimension
     ---------------------------
     """
-    x = 2*x - 1
     b = x.shape[0]
 
     recon_loss = F.mse_loss(x, x_recon, reduction='none').contiguous()
