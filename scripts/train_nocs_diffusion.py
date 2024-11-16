@@ -1,15 +1,10 @@
 import torch
 from diffusers.optimization import get_cosine_schedule_with_warmup
-from nocs_diffusion import train, ConfigDirectoriesManager, ConfigLoader
+from nocs_diffusion import train
 from nocs_diffusion.utils.load_save import save_model
 
 import hydra
-from omegaconf import DictConfig, OmegaConf
-
-import wandb
-import os
-from tqdm import tqdm
-import pathlib as pl
+from omegaconf import DictConfig
 
 
 @hydra.main(version_base=None, config_path='../src/nocs_diffusion/config', config_name='train_diffusion')
