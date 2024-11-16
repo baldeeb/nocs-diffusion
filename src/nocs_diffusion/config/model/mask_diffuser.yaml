@@ -1,0 +1,30 @@
+# defaults:
+#   - _self_
+#   - .@context_model.model: cloud_encoder
+
+_target_: nocs_diffusion.models.PointConditionedMaskDiffuser
+diffusion_model:
+  _target_:             diffusers.UNet2DConditionModel
+  sample_size:          cfg['image_size']
+  in_channels:          1
+  out_channels:         1
+  layers_per_block:     1
+  block_out_channels:   [128, 128, 128] # the number of output channels for each UNet block  
+  down_block_types:     ["CrossAttnDownBlock2D", "CrossAttnDownBlock2D", "CrossAttnDownBlock2D"]
+  up_block_types:       ["CrossAttnUpBlock2D", "CrossAttnUpBlock2D", "CrossAttnUpBlock2D"]
+  cross_attention_dim:  1028
+
+context_model:
+  _target_:  nocs_diffusion.models.load_model
+  model: 
+    _target_: nocs_diffusion.models.blocks.PointNetEncoder 
+    in_dim: 3  # Given xyz points
+    layer_dims: [32, 32, 32, 64, 128, 256]
+    out_dim: ${model.diffusion_model.cross_attention_dim}  # Predict latent
+    # layer_dims: [64, 128, 256, 512]
+    # out_dim: 1028  # Predict latent
+  path: # loads params when set.
+
+scheduler: 
+  _target_: diffusers.DDIMScheduler
+  num_train_timesteps: 300

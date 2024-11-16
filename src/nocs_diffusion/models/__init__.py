@@ -1,4 +1,5 @@
 from .point_contextualized_2d_diffusion import PointContextualized2dDiffusionModel
+from .point_contextualized_mask_diffusion import PointConditionedMaskDiffuser, PointConditionedMaskDiffuserValidator
 from .cloud_to_mask_vae import CloudToMaskVae, CloudToMaskVaeValidator
 from .vae import VAE
 from .utils import load_model, load_save

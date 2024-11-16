@@ -1,6 +1,5 @@
 import torch
 from .vae import VAE
-from .blocks import PointNetEncoder, ConvDecoder
 import wandb
 
 

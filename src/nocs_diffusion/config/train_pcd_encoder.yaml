@@ -1,0 +1,46 @@
+defaults:
+  - logging
+  - dataloader: shapenet
+  - model: mask_diffuser
+  - .@validate.dataloader: dataloader/shapenet
+  - _self_
+
+device: cuda:0
+
+logger:
+  name:    train_pcd_encoder
+
+# Data
+image_size: ${dataloader.renderer.image_size}
+dataloader:
+  renderer:
+    split: 'train'
+    
+# Training
+num_steps: 100000        # Epochs to train for
+steps_before_save: 1000  # Batches before saving a checkpoint
+steps_before_eval: 100   # Batches before evaluating
+num_eval_batches: 5      # Batches to evaluate on
+
+# Models
+# depth_latent_size: ${model.diffusion_model.cross_attention_dim}
+# model:
+  # context_model:
+    # path: # Can be set at evaluation time.
+
+# Validator 
+steps_before_val: 50   # Batches before evaluating
+validate:
+  _target_: nocs_diffusion.models.PointConditionedMaskDiffuserValidator
+  device: ${device}
+  num_batches: 5       # Batches to evaluate on
+  num_inference_steps: 20
+  dataloader: 
+    renderer:
+      split: test
+      batch_size: 8
+
+# Optimizer
+lr: 1e-4
+lr_warmup_steps: 50
+
