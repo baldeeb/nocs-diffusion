@@ -5,9 +5,7 @@ from diffusers.optimization import get_cosine_schedule_with_warmup
 import hydra
 from omegaconf import DictConfig, OmegaConf
 
-@hydra.main(version_base=None, 
-            config_path='../src/nocs_diffusion/config',
-            config_name='train_depth_vae')
+@hydra.main(version_base=None, config_path='../config', config_name='train_depth_vae')
 def run(cfg: DictConfig) -> None:
     model = hydra.utils.instantiate(cfg.model).to(cfg.device)
     dataloader = hydra.utils.instantiate(cfg.dataloader).to(cfg.device)
