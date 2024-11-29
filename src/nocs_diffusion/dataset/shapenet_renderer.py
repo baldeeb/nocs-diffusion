@@ -53,7 +53,7 @@ class ShapeNetRenderer:
                                  replacement=True)
         clouds = self.cloud_post_process(self.clouds[idxs])
         features = self.features[idxs]
-        cates = [self.cate_ids[i] for i in idxs]
+        cates = torch.stack([self.cate_ids[i] for i in idxs])
         return clouds, features, cates
 
     def __call__(self):
@@ -93,7 +93,7 @@ class ShapeNetDataloader:
         self.renderer = renderer
         self.point_per_render = points_per_render
         self.augment_face_points = augment_face_points
-        self.return_dict = return_dict
+        self.return_dict = return_dict  # TODO: rename. this is a list not a dict. 
 
     def to(self, device):
         self.renderer.to(device)
@@ -113,6 +113,6 @@ class ShapeNetDataloader:
         if 'images' in self.return_dict:
             result['images'] = renders['images'].permute(0, 3, 1, 2)
             result['images'] = ( result['images'] * 2 ) - 1
-        if 'categories' in self.return_dict:
-            result['categories'] = renders['categories']
+        if 'category_ids' in self.return_dict:
+            result['category_ids'] = renders['category_ids']
         return result

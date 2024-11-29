@@ -14,7 +14,7 @@ logger:
 image_size: ${dataloader.renderer.image_size}
 dataloader:
   renderer:
-    split: 'train'
+    split: train
     
 # Training
 num_steps: 100000        # Epochs to train for

@@ -14,7 +14,6 @@ def run(cfg: DictConfig) -> None:
     if (cfg.validate):
         validator = hydra.utils.instantiate(cfg.validate)
 
-    # TODO: move optimizer to hydra config.
     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.lr)
     lr_scheduler = get_cosine_schedule_with_warmup(
         optimizer=optimizer,
