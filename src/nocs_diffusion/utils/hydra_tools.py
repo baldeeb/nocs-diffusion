@@ -17,6 +17,7 @@ class ConfigLoader:
         self._ckpt_path = checkpoint_path
         self._model = None
         self._dataloader = None
+        self._validator = None
 
     @staticmethod
     def using_hydra_main(version_base=None, 
@@ -54,6 +55,12 @@ class ConfigLoader:
             self._dataloader = hydra.utils.instantiate(self.cfg.dataloader)
             self._dataloader = self._dataloader.to(self.cfg.device)
         return self._dataloader
+    
+    @property
+    def validator(self):
+        if self._validator is None: 
+            self._validator = hydra.utils.instantiate(self.cfg.validate)
+        return self._validator
 
 
     @staticmethod
