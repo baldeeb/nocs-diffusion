@@ -1,5 +1,5 @@
-from .shapenet.shapenet import ShapeNetCore
-from .data import DataLoader, get_data_iterator
+from ..shapenet.shapenet import ShapeNetCore
+from ..data import DataLoader, get_data_iterator
 
 
 class PointCloudLoader:
