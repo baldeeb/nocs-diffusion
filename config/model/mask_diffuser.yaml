@@ -12,14 +12,14 @@ diffusion_model:
   block_out_channels:   [128, 128, 128] # the number of output channels for each UNet block  
   down_block_types:     ["CrossAttnDownBlock2D", "CrossAttnDownBlock2D", "CrossAttnDownBlock2D"]
   up_block_types:       ["CrossAttnUpBlock2D", "CrossAttnUpBlock2D", "CrossAttnUpBlock2D"]
-  cross_attention_dim:  1028
+  cross_attention_dim:  256
 
 context_model:
   _target_:  nocs_diffusion.models.load_model
   model: 
     _target_: nocs_diffusion.models.blocks.PointNetEncoder 
     in_dim: 3  # Given xyz points
-    layer_dims: [32, 32, 32, 64, 128, 256]
+    layer_dims: [32, 64, 128, 256]
     out_dim: ${model.diffusion_model.cross_attention_dim}  # Predict latent
     # layer_dims: [64, 128, 256, 512]
     # out_dim: 1028  # Predict latent
