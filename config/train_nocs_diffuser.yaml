@@ -2,12 +2,13 @@ defaults:
   - logging
   - dataloader: shapenet
   - model: nocs_diffuser
+  - .@validate.dataloader: dataloader/shapenet
   - _self_
 
 device: cuda:0
 
 logger:
-  name:    train_diffusion
+  name:    train_nocs_diffuser
 
 # Data
 image_size: ${dataloader.renderer.image_size}
@@ -23,11 +24,23 @@ num_eval_batches: 5      # Batches to evaluate on
 
 # Models
 depth_latent_size: ${model.diffusion_model.cross_attention_dim}
-model:
-  context_model:
-    path: ./checkpoints/nocs-diffusion/train_depth_vae/2024-10-06_15-16-17/0000_049999.pth
+# model:
+  # context_model:
+    # path: ./checkpoints/nocs-diffusion/train_depth_vae/2024-10-06_15-16-17/0000_049999.pth
     # path: ./checkpoints/nocs-diffusion/train_depth_vae/2024-09-14_16-40-40/0000_006300.pth
 
+
+# Validator 
+steps_before_val: 50   # Batches before evaluating
+validate:
+  _target_: nocs_diffusion.models.PointContextualized2dDiffusionModelValidator
+  device: ${device}
+  num_batches: 5       # Batches to evaluate on
+  num_inference_steps: 20
+  dataloader: 
+    renderer:
+      split: test
+      batch_size: 8
 
 # Optimizer
 lr: 1e-4
