@@ -51,6 +51,7 @@ if __name__ == '__main__':
     model = loader.model
 
     if cfg.log:
+        cfg.logger.project += "_visualization"  
         wandb.init(**cfg.logger, config=OmegaConf.to_container(cfg))
         log = wandb.log
         if cfg.log_locally: os.environ["WANDB_MODE"] = "offline"
