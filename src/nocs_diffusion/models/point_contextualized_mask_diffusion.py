@@ -1,10 +1,11 @@
-import torch
-from .vae import VAE
 from .blocks import PointNetEncoder
-import wandb
+
 import torch
 import torch.nn.functional as F
+
 from diffusers import DDIMScheduler, UNet2DConditionModel
+
+import wandb
 
 class PointConditionedMaskDiffuser(torch.nn.Module):
     '''This class packages the huggingface diffusion utils to facilitate use.'''
@@ -80,7 +81,8 @@ class PointConditionedMaskDiffuserValidator:
         for _ in range(self.num_batches):
             d = self.dataloader()
             pred = model.sample(**d, num_inference_steps = self.num_inference_steps)
-            log({"ground_truth": wandb.Image(d['masks']),
+            log({"point cloud": [wandb.Object3D(v.clone().detach().cpu().numpy()) for v in d['face_points']],
+                 "ground_truth": wandb.Image(d['masks']),
                  "predicted": wandb.Image(pred),
                  "validation loss": model.loss(**d)})
      
