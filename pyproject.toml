@@ -24,7 +24,11 @@ dependencies = [
   "omegaconf",
   "hydra-core",
   "diffusers",
-  "wandb"
+  "wandb", 
+
+  "torchview",
+  "graphviz"
+  
 ]
 
 [project.urls]

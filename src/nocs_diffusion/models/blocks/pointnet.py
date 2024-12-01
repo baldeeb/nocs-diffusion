@@ -5,7 +5,7 @@ from ..utils import ModelReturnType
 from typing import List
 
 class PointNetEncoder(nn.Module):
-    def __init__(self, in_dim:int, layer_dims:List, out_dim:int):
+    def __init__(self, in_dim:int, layer_dims:List, out_dim:int, variational:bool=True):
         super().__init__()
         self.in_dim = in_dim
         self.latent_dims = layer_dims
@@ -13,7 +13,10 @@ class PointNetEncoder(nn.Module):
 
         self.point_proj = SetLinearHead([self.in_dim] + layer_dims, post_bn=True)
         self.mu_head    = LinearHead(layer_dims[::-1] + [self.out_dim])
-        self.var_head   = LinearHead(layer_dims[::-1] + [self.out_dim])
+        
+        self.var_head = LinearHead(layer_dims[::-1] + [self.out_dim]) \
+                        if variational \
+                        else lambda _: torch.FloatTensor()
 
     def forward(self, x):
         x = x.transpose(1, 2)
