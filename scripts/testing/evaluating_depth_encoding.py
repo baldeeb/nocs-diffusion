@@ -39,7 +39,7 @@ if __name__ == '__main__':
     ).to(cfg["device"])
 
     loss_fx = nn.CrossEntropyLoss()
-    optimizer = torch.optim.AdamW(lin_classifier.parameters(), lr=1e-3)
+    optimizer = torch.optim.AdamW(lin_classifier.parameters(), lr=1e-4)
 
     loss_tracker = []    
     batch_tqdm = tqdm(range(1000), desc='Training Step Loop')
