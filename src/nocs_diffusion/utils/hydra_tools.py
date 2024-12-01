@@ -58,7 +58,7 @@ class ConfigLoader:
     
     @property
     def validator(self):
-        if self._validator is None: 
+        if self._validator is None and "validate" in self.cfg: 
             self._validator = hydra.utils.instantiate(self.cfg.validate)
         return self._validator
 
