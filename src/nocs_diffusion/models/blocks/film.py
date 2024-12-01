@@ -7,6 +7,7 @@ class FilmLinearLayer(nn.Module):
                  bn_layer=nn.BatchNorm1d, 
                  act_layer=nn.ReLU, 
                  **conv_kwargs):
+        super().__init__()
         self.conv =  nn.Conv1d(in_ch, out_ch, **conv_kwargs)
         self.bn = bn_layer(out_ch)
         self.act = act_layer()
@@ -16,9 +17,9 @@ class FilmLinearLayer(nn.Module):
 
     def forward(self, x, ctxt=None):
         if ctxt is not None:
-            alpha, beta = torch.chunk(self.ctxt_proj(ctxt), 2)
+            alpha, beta = torch.chunk(self.ctxt_proj(ctxt), 2, dim=1)
         else: alpha, beta = 1.0, 0.0
-        return self.act(self.bn( self.conv(x) * alpha + beta ))
+        return self.act(self.bn( self.conv(x) * alpha[:, :, None] + beta[:, :, None] ))
 
 class FilmResLayer(nn.Module):
     def __init__(self, in_dim, out_dim, ctx_dim):
@@ -29,7 +30,7 @@ class FilmResLayer(nn.Module):
 
         
         self.conv2 = nn.Conv2d(out_dim, out_dim, 1)
-        self.bn2 = nn.BatchNorm2d(out_dim)
+        self.bn2 = nn.BatchNorm2d(out_dim) # TODO ????
         
         self.scale = nn.Linear(ctx_dim, out_dim, bias=False)
         self.bias = nn.Linear(ctx_dim, out_dim)
