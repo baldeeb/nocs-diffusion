@@ -41,7 +41,7 @@ class ConditionedPointNetEncoder(nn.Module):
         self.var = nn.Sequential(*(m for m in build_proj(proj_ch)))
 
     def forward(self, x, ctxt=None):
-        B, N, C = x.shape  # Batch, Points, Channel
+        # Batch, Points, Channel = x.shape
         x = x.transpose(1, 2)
         for l in self.enc_layers:
             x = l(x, ctxt=ctxt)

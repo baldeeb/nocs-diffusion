@@ -9,7 +9,7 @@ class PointContextualized2dDiffusionModel(torch.nn.Module):
     '''This class packages the huggingface diffusion utils to facilitate use.'''
     def __init__(self, diffusion_model, context_model, scheduler:DDPMScheduler):
         super().__init__()
-        self.ctxt_net = context_model.encoder
+        self.ctxt_net = context_model
         self.diff_net = diffusion_model
         self.scheduler = scheduler
         self.num_ts = len(scheduler.betas)  # num_train_timesteps
@@ -22,7 +22,7 @@ class PointContextualized2dDiffusionModel(torch.nn.Module):
             prev_num_steps = len(self.scheduler.timesteps)
             self.scheduler.set_timesteps(num_inference_steps)
 
-        ctxt = self.ctxt_net(points).mu
+        ctxt = self.ctxt_net(points)
         for t in self.scheduler.timesteps:
             with torch.no_grad():
                 res = self.diff_net(noisy, t, ctxt).sample
@@ -42,7 +42,7 @@ class PointContextualized2dDiffusionModel(torch.nn.Module):
         return self.scheduler.add_noise(images, noise, timesteps).clamp(-1.0, 1.0)
 
     def forward(self, **data):
-        ctxt = self.ctxt_net(data['face_points']).mu
+        ctxt = self.ctxt_net(data['face_points'])
         return self.diff_net(data['noisy_images'], data['timesteps'], ctxt).sample
         
     def loss(self, **data):

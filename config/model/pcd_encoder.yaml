@@ -1,0 +1,2 @@
+_target_: nocs_diffusion.models.blocks.PointNetEncoder 
+layer_dims: [3, 32, 64, 128, 256]
