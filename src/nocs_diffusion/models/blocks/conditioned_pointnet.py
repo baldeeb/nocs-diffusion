@@ -7,15 +7,13 @@ from ..utils import ModelReturnType
 from typing import List
     
 class ConditionedPointNetEncoder(nn.Module):
-    def __init__(self, in_dim:int, layer_dims:List, out_dim:int, ctxt_dim:int,
-                 last_proj_layers=None ):
+    def __init__(self, dims:List, ctxt_dim:int,
+                 last_proj_layers=None,
+                  variational=False ):
         super().__init__()
-        self.in_dim = in_dim
-        self.latent_dims = layer_dims
-        self.out_dim = out_dim
-
-        film_ch = [in_dim] + layer_dims
-        film_out = last_proj_layers[0] if last_proj_layers else out_dim
+        self.dims = dims
+        film_ch = dims[:-1]
+        film_out = last_proj_layers[0] if last_proj_layers else dims[-1]
         self.enc_layers = []
         for i, j in zip(film_ch[:-1], film_ch[1:]):
             self.enc_layers.append(FilmLinearLayer(i, j, 
@@ -36,14 +34,20 @@ class ConditionedPointNetEncoder(nn.Module):
                 yield _layer(i, j)
             yield _layer(proj_dims[-2], proj_dims[-1], False)
         
-        proj_ch = last_proj_layers + [out_dim] if last_proj_layers else [out_dim, out_dim]
+        proj_ch = last_proj_layers + [dims[-1]] if last_proj_layers else [dims[-1], dims[-1]]
         self.mu = nn.Sequential(*(m for m in build_proj(proj_ch))) 
-        self.var = nn.Sequential(*(m for m in build_proj(proj_ch)))
+        self.var = nn.Sequential(*(m for m in build_proj(proj_ch))) if variational else None
 
-    def forward(self, x, ctxt=None):
+    def forward(self, clouds, ids=None, **_):
+        x = clouds
         # Batch, Points, Channel = x.shape
         x = x.transpose(1, 2)
         for l in self.enc_layers:
-            x = l(x, ctxt=ctxt)
-        return ModelReturnType(mu = self.mu(x).transpose(1, 2),
-                               var = self.var(x).transpose(1, 2))
+            x = l(x, ctxt=ids)
+        
+        if self.var:
+            out = ModelReturnType(mu = self.mu(x).transpose(1, 2),
+                                  var = self.var(x).transpose(1, 2))
+        else: 
+            out = self.mu(x).transpose(1, 2)
+        return out

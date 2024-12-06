@@ -17,6 +17,7 @@
     - face_points
     - masks
     - images
+    - category_ids
   augment_face_points:
     _target_: nocs_diffusion.dataset.RandSe3Noise
     dist_range: [-0.2, 0.2]

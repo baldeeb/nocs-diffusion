@@ -53,7 +53,7 @@ class ShapeNetRenderer:
                                  replacement=True)
         clouds = self.cloud_post_process(self.clouds[idxs])
         features = self.features[idxs]
-        cates = torch.stack([self.cate_ids[i] for i in idxs])
+        cates = torch.stack([self.cate_ids[i] for i in idxs]).float()[:, None]
         return clouds, features, cates
 
     def __call__(self):

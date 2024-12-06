@@ -17,7 +17,8 @@ class PointNetProjector(nn.Module):
         self.mu_head    = LinearHead(self.dims[-2:])
         self.var_head   = LinearHead(self.dims[-2:]) if variational else lambda _: torch.FloatTensor()
 
-    def forward(self, x):
+    def forward(self, clouds):
+        x = clouds
         x = x.transpose(1, 2)
         x = self.point_proj(x)
         x = x.transpose(1, 2)
@@ -60,7 +61,8 @@ class PointNetEncoder(nn.Module):
     def encoder(self):
         return self                    
     
-    def forward(self, x):
+    def forward(self, cloud, **_):
+        x = cloud
         for tnet, pnet in zip(self.tnets, self.proj):
             t = tnet(x)
             x = torch.einsum('bcd,bnd->bnc', t, x)

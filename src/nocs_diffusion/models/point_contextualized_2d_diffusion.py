@@ -16,13 +16,14 @@ class PointContextualized2dDiffusionModel(torch.nn.Module):
     
     def fix(self, num_inference_steps=None, **data):
         noisy = data['noisy_images'].clone().detach()
-        points = data['face_points']
         
         if num_inference_steps: 
             prev_num_steps = len(self.scheduler.timesteps)
             self.scheduler.set_timesteps(num_inference_steps)
 
-        ctxt = self.ctxt_net(points)
+        ctxt = self.ctxt_net(clouds=data['face_points'], 
+                            ids=data['category_ids'],
+                            **data)
         for t in self.scheduler.timesteps:
             with torch.no_grad():
                 res = self.diff_net(noisy, t, ctxt).sample
@@ -42,7 +43,9 @@ class PointContextualized2dDiffusionModel(torch.nn.Module):
         return self.scheduler.add_noise(images, noise, timesteps).clamp(-1.0, 1.0)
 
     def forward(self, **data):
-        ctxt = self.ctxt_net(data['face_points'])
+        ctxt = self.ctxt_net(clouds=data['face_points'], 
+                             ids=data['category_ids'],
+                             **data)
         return self.diff_net(data['noisy_images'], data['timesteps'], ctxt).sample
         
     def loss(self, **data):
