@@ -15,11 +15,12 @@ if __name__ == '__main__':
                     prog='PCD Encoder Linear Classifier',
                     description='Trains a linear classifier over a pre-trained pcd encoder.',
                     epilog='Text at the bottom of help')
-    parser.add_argument("-c", "--checkpoint", required=True 
+    parser.add_argument("checkpoint",
                     help="First argument should point to a checkpoint." + \
                          "The director of the checkpoint is expected to house" + \
                          ".hydra/config.yaml",)
     args = parser.parse_args()
+    print(args.checkpoint)
     loader = ConfigLoader.load_from_checkpoint(args.checkpoint)
     
     cfg = loader.cfg
@@ -31,7 +32,7 @@ if __name__ == '__main__':
     val_dataloder.return_dict.append('category_ids')
     num_cats = len(dataloader.renderer.dataset.cate_synsetids)
     lin_classifier = nn.Sequential(
-        nn.Linear(model.out_dim, num_cats),
+        nn.Linear(model.dims[-1], num_cats),
         nn.Sigmoid(),
     ).to(cfg["device"])
 
@@ -39,11 +40,11 @@ if __name__ == '__main__':
     optimizer = torch.optim.AdamW(lin_classifier.parameters(), lr=1e-4)
 
     loss_tracker = []    
-    batch_tqdm = tqdm(range(1000), desc='Training Step Loop')
+    batch_tqdm = tqdm(range(5000), desc='Training Step Loop')
     for batch_i in batch_tqdm:
 
         data = dataloader()
-        point_embeddings = model(data['face_points']).mu.squeeze(1)
+        point_embeddings = model(data['face_points']).squeeze(1)
         pred = lin_classifier(point_embeddings)
         loss = loss_fx(pred, data['category_ids']) 
         
@@ -58,8 +59,7 @@ if __name__ == '__main__':
     
     plt.plot(loss_tracker)
     plt.title("Training Loss")
-    # TODO: display instead of saving
-    plt.savefig("eval_depth_encoding_training_curve")
+    plt.savefig("./data/sandbox/eval_depth_encoding_training_curve")
 
     result_dict = {i:0 for i in range(num_cats)}
     pred_counts = {i:0 for i in range(num_cats)}
@@ -67,7 +67,7 @@ if __name__ == '__main__':
     for _ in val_range:
         data = val_dataloder()
         
-        point_embeddings = model(data['face_points']).mu.squeeze(1)
+        point_embeddings = model(data['face_points']).squeeze(1)
         pred = lin_classifier(point_embeddings)
         
         pred_labels = torch.max(pred, dim=0).indices
