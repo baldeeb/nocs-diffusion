@@ -12,19 +12,16 @@ import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
     parser = ArgumentParser(
-                    prog='visualize_nocs_diffusion',
-                    description='Visualizes the results of a trained nocs diffusion model.',
+                    prog='PCD Encoder Linear Classifier',
+                    description='Trains a linear classifier over a pre-trained pcd encoder.',
                     epilog='Text at the bottom of help')
-    parser.add_argument("-c", "--checkpoint", 
-                    help="First argument can be used to point to a checkpoint." + \
+    parser.add_argument("-c", "--checkpoint", required=True 
+                    help="First argument should point to a checkpoint." + \
                          "The director of the checkpoint is expected to house" + \
                          ".hydra/config.yaml",)
     args = parser.parse_args()
-    if args.checkpoint is not None:
-        loader = ConfigLoader.load_from_checkpoint(args.checkpoint)
-    else:
-        cfg_path = ConfigDirectoriesManager()['eval_depth_encoder.yaml']
-        loader = ConfigLoader.from_config_path(str(cfg_path))
+    loader = ConfigLoader.load_from_checkpoint(args.checkpoint)
+    
     cfg = loader.cfg
     model = loader.model.ctxt_net
     dataloader = loader.dataloader
