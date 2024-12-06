@@ -13,15 +13,18 @@ GRAPH_OUT_FORMAT = 'png'
 OUT_DIRECTORY = './data/sandbox/'
 
 def test_and_graph_pointnet():
-    data = torch.rand(B, N, D)
-    net = PointNetEncoder(D, [32], 64, False)
+    data = torch.rand(B, N, D).to(device)
+    net = PointNetEncoder([D, 32, 64]).to(device)
+    print(f'network:\n{net}')
 
-    net(data)
-
+    output = net(data)
+    print(f'result shape: {output.shape}')
+    
     model_graph = draw_graph(net, input_data=(data), expand_nested=True)
     model_graph.visual_graph.render('PointNetEncder', 
                                     directory=OUT_DIRECTORY,
                                     format=GRAPH_OUT_FORMAT)
+
 
 def test_and_graph_coditioned_pointnet():
     data = torch.rand(B, N, D).to(device)
