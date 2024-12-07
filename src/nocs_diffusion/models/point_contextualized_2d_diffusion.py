@@ -21,8 +21,8 @@ class PointContextualized2dDiffusionModel(torch.nn.Module):
             prev_num_steps = len(self.scheduler.timesteps)
             self.scheduler.set_timesteps(num_inference_steps)
 
-        ctxt = self.ctxt_net(clouds=data['face_points'], 
-                            ids=data['category_ids'],
+        ctxt = self.ctxt_net(data['face_points'], 
+                             ctxt=data.get('category_ids', None),
                             **data)
         for t in self.scheduler.timesteps:
             with torch.no_grad():
@@ -37,16 +37,19 @@ class PointContextualized2dDiffusionModel(torch.nn.Module):
     def sample_timesteps(self, count, device):
         return torch.randint(0, self.num_ts, (count,), device=device, dtype=torch.int64)
 
-    def add_noise(self, images):
-        timesteps = self.sample_timesteps(len(images), images.device)
+    def add_noise(self, images, timesteps=None):
+        if timesteps is None:
+            timesteps = self.sample_timesteps(len(images), images.device)
         noise = torch.randn_like(images)
         return self.scheduler.add_noise(images, noise, timesteps).clamp(-1.0, 1.0)
 
     def forward(self, **data):
-        ctxt = self.ctxt_net(clouds=data['face_points'], 
-                             ids=data['category_ids'],
+        ctxt = self.ctxt_net(data['face_points'], 
+                             ctxt=data.get('category_ids', None),
                              **data)
-        return self.diff_net(data['noisy_images'], data['timesteps'], ctxt).sample
+        return self.diff_net(data['noisy_images'], 
+                             data['timesteps'],
+                             ctxt).sample
         
     def loss(self, **data):
         timesteps = torch.randint(0, self.num_ts, (data['images'].shape[0],), 
