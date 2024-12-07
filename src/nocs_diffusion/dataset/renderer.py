@@ -8,6 +8,7 @@ from pytorch3d.renderer import PointsRasterizationSettings
 from pytorch3d.renderer import PointsRasterizer
 from pytorch3d.renderer import PointsRenderer
 from pytorch3d.renderer import AlphaCompositor
+from pytorch3d.renderer import get_world_to_view_transform
 
 from pytorch3d.ops import estimate_pointcloud_normals
 
@@ -66,6 +67,7 @@ class Torch3DRendererWrapper(nn.Module):
                  dist_range=[0.8, 1.5], 
                  elev_range=[0, 360], 
                  azim_range=[0, 360],
+                 points_in_perspective=True,
                  **kwargs
                 ):
         self._aspect_ratio = aspect_ratio
@@ -80,6 +82,8 @@ class Torch3DRendererWrapper(nn.Module):
         self._dist_range = dist_range
         self._elev_range = elev_range
         self._azim_range = azim_range
+
+        self.points_in_perspective = points_in_perspective
 
     def _get_renderer(self, feat_size, Rs, Ts, device):
         cameras = FoVPerspectiveCameras(
@@ -138,4 +142,19 @@ class Torch3DRendererWrapper(nn.Module):
             result['normals'] = result['images'][:, :, :, -3:]
             result['images'] = result['images'][:, :, :, :-3]
         
+        if self.points_in_perspective:
+            ''' Not very confident in this but here is the rational:
+            The defined Rs and Ts are applied to the camera relative to 
+            some frame. Those are akin to applying the inverse of those
+            transforms to the cloud. To position the points relative to 
+            the camera we could simply apply the same transform to the
+            cloud, undoing the effect of camera rotation but positioning
+            the cloud points in a location similar to what is expected 
+            if we only have reprojected dense depth images.
+            All this is not really validated but the intention is to 
+            test its effectiveness through experiemtns.'''
+            clouds = torch.stack(result['face_points'])
+            Rt = get_world_to_view_transform(Rs, Ts)
+            result['face_points'] = Rt.transform_points(clouds)
+
         return result
