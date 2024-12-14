@@ -1,6 +1,6 @@
 from .shapenet.shapenet import ShapeNetCore, cate_to_synsetid
 from .renderer import Torch3DRendererWrapper, sample_transforms, mask_from_depth
-from .renderer_tools import sample_from_clouds
+from .renderer_tools import sample_from_clouds, sample_dim_zero, list_to_torch_mat
 from .nocs_tools import nocs_extractor
 
 import torch
@@ -65,7 +65,6 @@ class ShapeNetRenderer:
         renders = self.renderer(clouds, features, Rs=Rs, Ts=Ts)
         renders['category_ids'] = cates
         return renders
-        
 
     @staticmethod
     def build(path, 
@@ -89,30 +88,50 @@ class ShapeNetRenderer:
 
 
 class ShapeNetDataloader:
-    def __init__(self, renderer, return_dict, augment_face_points, points_per_render):
-        self.renderer = renderer
+    def __init__(self, renderer:ShapeNetRenderer, return_dict, points_per_render, augment_face_points=lambda _:_):
+        self.shapenet_renderer = renderer
         self.point_per_render = points_per_render
         self.augment_face_points = augment_face_points
         self.return_dict = return_dict  # TODO: rename. this is a list not a dict. 
+        self.device='cuda'
 
     def to(self, device):
-        self.renderer.to(device)
+        self.shapenet_renderer.to(device)
+        self.device = device
         return self
 
     def __call__(self):
         result = {}
-        renders = self.renderer()
+        renders = self.shapenet_renderer()
         if 'masks' in self.return_dict:
             depths = renders['depths'].permute(0, 3, 1, 2)
-            result['masks'] = mask_from_depth(depths, inverse=True)
+            result['masks'] = mask_from_depth(depths, inverse=False)
+            result['masks'].to(self.device)
         if 'face_points' in self.return_dict:
             fp = renders['face_points']
-            fp = sample_from_clouds(fp, self.point_per_render)
+            fp, sampled_idxs = list_to_torch_mat(fp, self.point_per_render)
             fp = self.augment_face_points(fp)
-            result['face_points'] = fp
+            result['face_points'] = fp.to(self.device)
+            if 'perspective_2d_indices':
+                # For the sake of clarity and completeness; these values are 
+                # indices, in a 2d perspective projection, directly corresponding
+                # to the 3d points in the face_points cloud. This allows one to 
+                # sample the perspecvive images and derive correlations between 
+                # predicted pixels and 3d points rapidly.
+                pts_2d_idxs = renders['face_pts_2d_idxs']
+                B, N = sampled_idxs.shape[:2]
+                p2di = torch.ones(B, N, *pts_2d_idxs[0].shape[1:])
+                for i, obj_2d_idxs in enumerate(pts_2d_idxs):
+                    p2di[i] = obj_2d_idxs[sampled_idxs[i]]
+                result['perspective_2d_indices'] = p2di.long().to(self.device)
         if 'images' in self.return_dict:
             result['images'] = renders['images'].permute(0, 3, 1, 2)
             result['images'] = ( result['images'] * 2 ) - 1
+            result['images'].to(self.device)
         if 'category_ids' in self.return_dict:
-            result['category_ids'] = renders['category_ids']
+            result['category_ids'] = renders['category_ids'].to(self.device)
+        if 'projection_matrix' in self.return_dict:
+            result['projection_matrix'] = self.shapenet_renderer.renderer.get_projection_matrix().to(self.device)
+        
+        for v in result.values(): v.to(self.device)
         return result

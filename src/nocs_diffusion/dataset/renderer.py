@@ -29,7 +29,9 @@ class PointRgbdRenderer(PointsRenderer):
         r = self.rasterizer.raster_settings.radius
 
         dists2 = fragments.dists.permute(0, 3, 1, 2)
-        indices = fragments.idx.long().permute(0, 3, 1, 2)
+        indices = fragments.idx.long().permute(0, 3, 1, 2) # The one-dimensional-indices of the points 
+                                                           #  seen from this perspective, as they are 
+                                                           #  organized in the object cloud 
         weights = 1 - dists2 / (r * r)
         images = self.compositor(
             indices,
@@ -38,21 +40,20 @@ class PointRgbdRenderer(PointsRenderer):
             **kwargs,
         )
 
-        # permute so image comes at the end
+        # permute so data channels are the end
         images = images.permute(0, 2, 3, 1)
         depths = fragments.zbuf[:,:,:, :1]
+        obj_clouds = point_clouds.points_packed() 
 
-        # package points visible in render
-        face_pts = []
-        points_packed = point_clouds.points_packed()
-        B = indices.shape[0]
-        for i in range(B):
-            face_idxs = indices[i].contiguous().view(-1)
-            face_pts.append(points_packed[face_idxs])
+        perspective_2d_idxs = [torch.argwhere(batch_idxs  != -1) for batch_idxs in indices[:, 0]]
 
+        # Sample the points that are visible from the used perspective
+        face_pts = [obj_clouds[indices[i, 0, prspctv_i[:, 0], prspctv_i[:, 1]]] for i, prspctv_i in enumerate(perspective_2d_idxs)]
+        
         return {'images':images, 
                 'depths': depths, 
-                'face_points':face_pts}
+                'face_points':face_pts,
+                'face_pts_2d_idxs': perspective_2d_idxs}
 
 
 class Torch3DRendererWrapper(nn.Module):
@@ -64,6 +65,7 @@ class Torch3DRendererWrapper(nn.Module):
                  aspect_ratio=torch.tensor(1.0),
                  cam_fov=torch.tensor(60),
                  znear=0.01,
+                 zfar=100.0,
                  dist_range=[0.8, 1.5], 
                  elev_range=[0, 360], 
                  azim_range=[0, 360],
@@ -73,6 +75,7 @@ class Torch3DRendererWrapper(nn.Module):
         self._aspect_ratio = aspect_ratio
         self._fov = cam_fov
         self._znear = znear
+        self._zfar = zfar
         self._image_size = image_size
         self.raster_settings = PointsRasterizationSettings(
             image_size=image_size,
@@ -102,6 +105,11 @@ class Torch3DRendererWrapper(nn.Module):
             compositor=AlphaCompositor(background_color=torch.ones(feat_size)),
         )
         return renderer
+
+    def get_projection_matrix(self) -> torch.Tensor:
+        self._K = FoVPerspectiveCameras().compute_projection_matrix(
+            self._znear, self._zfar, self._fov, self._aspect_ratio, degrees=True)
+        return self._K
 
     def _sample_transforms(self, n):
         return sample_transforms(n, self._dist_range, self._elev_range, 
@@ -143,7 +151,7 @@ class Torch3DRendererWrapper(nn.Module):
             result['images'] = result['images'][:, :, :, :-3]
         
         if self.points_in_perspective:
-            ''' Not very confident in this but here is the rational:
+            ''' Not very confident in this but here is the rationale:
             The defined Rs and Ts are applied to the camera relative to 
             some frame. Those are akin to applying the inverse of those
             transforms to the cloud. To position the points relative to 
@@ -153,8 +161,11 @@ class Torch3DRendererWrapper(nn.Module):
             if we only have reprojected dense depth images.
             All this is not really validated but the intention is to 
             test its effectiveness through experiemtns.'''
-            clouds = torch.stack(result['face_points'])
-            Rt = get_world_to_view_transform(Rs, Ts)
-            result['face_points'] = Rt.transform_points(clouds)
+            def get_transformed_pts():
+                for R, t, pts in zip(Rs, Ts, result['face_points']):
+                    yield get_world_to_view_transform(R[None], t[None]).transform_points(pts[None])[0]
+            result['face_points'] = [p for p in get_transformed_pts()]
+            # Rt = get_world_to_view_transform(Rs, Ts)
+            # result['face_points'] = [Rti.transform_points(p) for Rti, p in zip(Rt, result['face_points']) ]
 
         return result
