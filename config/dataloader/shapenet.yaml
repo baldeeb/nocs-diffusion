@@ -18,9 +18,10 @@
     - masks
     - images
     - category_ids
-  augment_face_points:
-    _target_: nocs_diffusion.dataset.RandSe3Noise
-    dist_range: [-0.2, 0.2]
-    elev_range: [0,    70 ]
-    azim_range: [0,    360]
+    - perspective_2d_indices
+  # augment_face_points:
+  #   _target_: nocs_diffusion.dataset.RandSe3Noise
+  #   dist_range: [-0.2, 0.2]
+  #   elev_range: [0,    70 ]
+  #   azim_range: [0,    360]
   points_per_render: 1000
