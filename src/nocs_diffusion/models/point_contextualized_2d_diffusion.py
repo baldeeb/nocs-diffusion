@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 
 from diffusers import DDPMScheduler
+from ..utils.alignment import simple_align
 
 import wandb
 
@@ -78,10 +79,19 @@ class PointContextualized2dDiffusionModelValidator:
         for _ in range(self.num_batches):
             d = self.dataloader()
             d['noisy'] = model.add_noise(d['images'])
-            pred = model.sample(**d, num_inference_steps = self.num_inference_steps)
-            log({"point cloud": [wandb.Object3D(v.clone().detach().cpu().numpy()) for v in d['face_points']],
+            pred = model.sample(**d, num_inference_steps = self.num_inference_steps) # (B, C, H, W)
+            
+            img2pcd_idxs = d['perspective_2d_indices']
+            pred_pts = torch.stack([p[:,  i[:, 0], i[:, 1]].T 
+                                    for p, i in zip(pred, img2pcd_idxs)])
+            Rts, mean_dists, dists = simple_align(d['face_points'], pred_pts)
+            
+            log({"point cloud": [wandb.Object3D(v.clone().detach().cpu().numpy()) 
+                                 for v in d['face_points']],
                  "ground_truth_nocs": wandb.Image(d['images']),
                  "noisy_nocs": wandb.Image(d['noisy']),
                  "predicted_nocs": wandb.Image(pred),
-                 "validation loss": model.loss(**d)})
+                #  "validation_loss": model.loss(**d)['loss'],
+                 "validation_loss": mean_dists.mean()
+                 })
      
