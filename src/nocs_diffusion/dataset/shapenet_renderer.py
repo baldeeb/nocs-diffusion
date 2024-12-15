@@ -103,6 +103,8 @@ class ShapeNetDataloader:
     def __call__(self):
         result = {}
         renders = self.shapenet_renderer()
+        if 'transforms' in self.return_dict:
+            result['transforms'] = renders['Rts']
         if 'masks' in self.return_dict:
             depths = renders['depths'].permute(0, 3, 1, 2)
             result['masks'] = mask_from_depth(depths, inverse=False)
@@ -117,7 +119,7 @@ class ShapeNetDataloader:
                 # indices, in a 2d perspective projection, directly corresponding
                 # to the 3d points in the face_points cloud. This allows one to 
                 # sample the perspecvive images and derive correlations between 
-                # predicted pixels and 3d points rapidly.
+                # predicted pixels and 3d porendersnts rapidly.
                 pts_2d_idxs = renders['face_pts_2d_idxs']
                 B, N = sampled_idxs.shape[:2]
                 p2di = torch.ones(B, N, *pts_2d_idxs[0].shape[1:])

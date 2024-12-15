@@ -167,5 +167,6 @@ class Torch3DRendererWrapper(nn.Module):
             result['face_points'] = [p for p in get_transformed_pts()]
             # Rt = get_world_to_view_transform(Rs, Ts)
             # result['face_points'] = [Rti.transform_points(p) for Rti, p in zip(Rt, result['face_points']) ]
+        result['Rts'] = get_world_to_view_transform(Rs, Ts)
 
         return result

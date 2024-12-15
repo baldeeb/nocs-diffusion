@@ -81,17 +81,30 @@ class PointContextualized2dDiffusionModelValidator:
             d['noisy'] = model.add_noise(d['images'])
             pred = model.sample(**d, num_inference_steps = self.num_inference_steps) # (B, C, H, W)
             
-            img2pcd_idxs = d['perspective_2d_indices']
-            pred_pts = torch.stack([p[:,  i[:, 0], i[:, 1]].T 
-                                    for p, i in zip(pred, img2pcd_idxs)])
-            Rts, mean_dists, dists = simple_align(d['face_points'], pred_pts)
+            if 'perspective_2d_indices' in d:
+                img2pcd_idxs = d['perspective_2d_indices']
+                pred_pts = torch.stack([p[:,  i[:, 0], i[:, 1]].T 
+                                        for p, i in zip(pred, img2pcd_idxs)])
+                Rts, mean_dists, dists = simple_align(d['face_points'], pred_pts)
+                
+                if 'transforms' in d:
+                    if Rts.shape[-2] == 3: 
+                        last_row = torch.ones(*Rts.shape[:-2], 1, 4) * torch.tensor([0, 0, 0, 1])
+                        Rts = torch.concatenate((Rts, last_row.to(Rts.device)), dim=-2)
+                    
+                    I = torch.eye(4).to(Rts.device)
+                    gt_Rts = d['transforms'].get_matrix().to(Rts.device)
+                    residual_Rts = (I - ( Rts.inverse() @ gt_Rts ) ).norm()
+                    
             
             log({"point cloud": [wandb.Object3D(v.clone().detach().cpu().numpy()) 
                                  for v in d['face_points']],
                  "ground_truth_nocs": wandb.Image(d['images']),
                  "noisy_nocs": wandb.Image(d['noisy']),
                  "predicted_nocs": wandb.Image(pred),
-                #  "validation_loss": model.loss(**d)['loss'],
-                 "validation_loss": mean_dists.mean()
+                 "validation": { 
+                     'abs_mean_cloud_dists': mean_dists.mean(), # Good indication of the quality of the nocs map
+                     'norm_residual_transform': residual_Rts    # how good is the map at providing transform.
+                    }
                  })
      
