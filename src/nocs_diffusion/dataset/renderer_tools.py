@@ -66,6 +66,11 @@ def sample_dim_zero(data, out_count, pad_zeros=True):
             pi = ((torch.rand(out_count-N) - 1e-6) * N).flatten().long()
             indices[N:] = pi
             out_data[N:] = data[pi]
+    else:
+        pi = ((torch.rand(out_count) - 1e-6) * N).flatten().long()
+        indices = pi
+        out_data = data[pi]
+
     return out_data, indices.long()
 
 def list_to_torch_mat(data, desired_N):
