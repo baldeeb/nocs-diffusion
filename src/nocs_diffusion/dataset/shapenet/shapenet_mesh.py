@@ -1,14 +1,181 @@
+import os
+from pathlib import Path
+import zipfile
+import torch
+from torch.utils.data import Dataset, DataLoader
+from torchvision import transforms
+from pytorch3d.io import load_objs_as_meshes
+from pytorch3d.structures.meshes import Meshes
+import json
+
+import torch
+import numpy as np
+from pytorch3d.renderer import (
+    FoVPerspectiveCameras, RasterizationSettings, 
+    MeshRenderer, MeshRendererWithFragments,
+    MeshRasterizer, SoftPhongShader, TexturesVertex
+)
+from pytorch3d.renderer.cameras import look_at_view_transform
+from nocs_diffusion.dataset.shapenet.synsetids import synsetid_to_cate
+
+DEFAULT_SPLIT_PERCENTAGES = {
+    'train': 0.7,
+    'val': 0.15,
+    'test': 0.15
+}
+
+class ShapeNetDataset(Dataset):
+    def __init__(self, root_dir, synset_ids, split='train', 
+                 split_percentages=DEFAULT_SPLIT_PERCENTAGES,
+                 device='cpu', verbose=False):
+        self.device = device
+        self.root_dir = root_dir
+        self.synset_ids = synset_ids
+        self.split = split
+        self.split_percentages = split_percentages
+
+        if verbose:
+            print(f"Loading ShapeNet dataset with synset IDs: " + 
+                  f"{[synsetid_to_cate[id] for id in self.synset_ids]}")
+        
+        self.data = self._load_data()
+        self.split_ids = self._load_split_meta()
+
+        if verbose:
+            print(f"Loaded {len(self.split_ids[self.split])} samples for split {self.split}")
+
+    def _load_split_meta(self):
+        '''Loads the split file for the given synset IDs, 
+        if the user is requesting the same IDs previously seen. 
+        Otherwise, creates a pt file with the split.'''
+        requested_synsets = '_'.join(self.synset_ids)
+        split_file = os.path.join(self.root_dir, f"meta_dataloader_{requested_synsets}.pt")
+        if os.path.exists(split_file):
+            split_meta = torch.load(split_file)
+        else:
+            split_meta = {'train':[], 'val':[], 'test':[]}
+            
+            for synset_id in self.synset_ids:
+                n_samples = len(self.data[synset_id])
+                idxs = torch.randperm(n_samples).numpy()
+                
+                train_count = int(n_samples * self.split_percentages['train'])
+                val_count = int(n_samples * self.split_percentages['val'])
+                
+                synset_file_ids = list(self.data[synset_id].keys())
+                split_meta['train'] = [(synset_id, synset_file_ids[i]) 
+                                       for i in idxs[:train_count]]
+                split_meta['val']   = [(synset_id, synset_file_ids[i]) 
+                                       for i in idxs[train_count: train_count + val_count]]
+                split_meta['test']  = [(synset_id, synset_file_ids[i])
+                                       for i in idxs[train_count + val_count:]]
+                torch.save(split_meta, split_file)
+        
+        return split_meta
+    
+    def _load_data(self):
+        data = {}
+        for synset_id in self.synset_ids:
+            data[synset_id] = {}
+            folder_path = os.path.join(self.root_dir, f"{synset_id}")
+            if not os.path.isdir(folder_path):
+                zip_path = f"{folder_path}.zip"
+                with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                    zip_ref.extractall(self.root_dir)
+            
+            obj_files = [f"{d}/{f}" for d, _, files in os.walk(folder_path) 
+                                    for f in files 
+                                    if f.endswith('.obj')]
+            ids = [dir.split('/')[-3] for dir in obj_files]
+            objs = load_objs_as_meshes(obj_files, device=self.device, 
+                                       create_texture_atlas=True,
+                                       load_textures=True)
+            data[synset_id] = {id: obj for id, obj in zip(ids, objs)}
+        return data
+
+    def __len__(self):
+        return len(self.split_ids[self.split])
+
+    def __getitem__(self, idx):
+        synset_id, file_id = self.split_ids[self.split][idx]
+        mesh = self.data[synset_id][file_id]
+        return mesh, synset_id, file_id
 
 
-def load_obj(self):
+def generate_random_camera_views(num_views=1):
+    elev = torch.rand(num_views) * 180 - 90  # Elevation in degrees
+    azim = torch.rand(num_views) * 360       # Azimuth in degrees
+    return elev, azim
 
-    for synsetid in self.cate_synsetids:
-        base_path = ""
-        path = base_path + f"/{synsetid}.obj"
-        mesh = IO().load_mesh(path)
-        
-        cate_name = synsetid_to_cate[synsetid]
-        
-        for j, pc in enumerate(f[synsetid][self.split]):
-            yield torch.from_numpy(pc), j, cate_name
-        
+def render_images_from_single_mesh(mesh, num_views=1, image_size=256):
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    mesh = mesh.to(device)
+
+    # Generate random camera views
+    elev, azim = generate_random_camera_views(num_views)
+
+    # Define the settings for rasterization and shading
+    raster_settings = RasterizationSettings(
+        image_size=image_size,
+        blur_radius=0.0,
+        faces_per_pixel=1,
+    )
+
+    # Initialize an OpenGL perspective camera
+    R, T = look_at_view_transform(dist=1.5, elev=elev, azim=azim, device=device)
+    
+    renders = []
+    frags = []
+    for i in range(num_views):
+        cameras = FoVPerspectiveCameras(device=device, R=R[i:i+1], T=T[i:i+1])
+
+        # Create a phong renderer by composing a rasterizer and a shader
+        renderer = MeshRendererWithFragments(
+            rasterizer=MeshRasterizer(cameras=cameras, raster_settings=raster_settings),
+            shader=SoftPhongShader(device=device, cameras=cameras)
+        )
+
+        # Render the mesh
+        images, fragments = renderer(mesh)
+        renders.append(images)
+        frags.append(fragments)
+    
+    renders = torch.concatenate(renders, dim=0)
+    zbuf = torch.concatenate([f.zbuf for f in frags], dim=0)
+
+    # Extract NOCS, Depth, and Mask images
+    nocs_images = renders[..., :3]  # RGB channels
+    depth_images = zbuf[:,:,:, :1]
+
+    mask_images = (depth_images > 0).float()  # Binary mask
+
+    return nocs_images, depth_images, mask_images
+
+
+# Example usage
+root_dir = '/home/baldeeb/Data/ShapeNetCore'
+synset_ids = ['03797390']
+dataset = ShapeNetDataset(root_dir, synset_ids, split='train', verbose=True)
+
+NUM_VIEWS=5
+
+# Get depth and mask for the first mesh in the dataset
+mesh, synset_id, file_name = dataset[0]
+nocs_images, depth_images, mask_images = render_images_from_single_mesh(mesh, num_views=NUM_VIEWS) 
+
+# Display the images
+import matplotlib.pyplot as plt
+
+for i in range(NUM_VIEWS):
+    plt.figure(figsize=(10, 3))
+    plt.subplot(1, 3, 1)
+    plt.imshow(nocs_images[i].cpu().numpy())
+    plt.title('NOCS Image')
+    plt.subplot(1, 3, 2)
+    plt.imshow(depth_images[i].cpu().numpy(), cmap='gray')
+    plt.title('Depth Image')
+    plt.subplot(1, 3, 3)
+    plt.imshow(mask_images[i].cpu().numpy(), cmap='gray')
+    plt.title('Mask Image')
+    plt.show()
+
