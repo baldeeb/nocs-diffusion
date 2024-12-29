@@ -6,6 +6,7 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from pytorch3d.io import load_objs_as_meshes
 from pytorch3d.structures.meshes import Meshes
+from pytorch3d.structures import join_meshes_as_batch
 import json
 
 import torch
@@ -13,7 +14,8 @@ import numpy as np
 from pytorch3d.renderer import (
     FoVPerspectiveCameras, RasterizationSettings, 
     MeshRenderer, MeshRendererWithFragments,
-    MeshRasterizer, SoftPhongShader, TexturesVertex
+    MeshRasterizer, SoftPhongShader, TexturesVertex,
+    PerspectiveCameras
 )
 from pytorch3d.renderer.cameras import look_at_view_transform
 from nocs_diffusion.dataset.shapenet.synsetids import synsetid_to_cate
@@ -38,7 +40,7 @@ class ShapeNetDataset(Dataset):
             print(f"Loading ShapeNet dataset with synset IDs: " + 
                   f"{[synsetid_to_cate[id] for id in self.synset_ids]}")
         
-        self.data = self._load_data()
+        self.data, self.meta = self._load_data()
         self.split_ids = self._load_split_meta()
 
         if verbose:
@@ -75,8 +77,10 @@ class ShapeNetDataset(Dataset):
     
     def _load_data(self):
         data = {}
+        meta = {}
         for synset_id in self.synset_ids:
             data[synset_id] = {}
+            meta[synset_id] = {}
             folder_path = os.path.join(self.root_dir, f"{synset_id}")
             if not os.path.isdir(folder_path):
                 zip_path = f"{folder_path}.zip"
@@ -91,7 +95,13 @@ class ShapeNetDataset(Dataset):
                                        create_texture_atlas=True,
                                        load_textures=True)
             data[synset_id] = {id: obj for id, obj in zip(ids, objs)}
-        return data
+
+            meta_files = [f"{f[:-4]}.json" for f in obj_files]
+            for meta_file in meta_files:
+                with open(meta_file, 'r') as f:
+                    object_meta = json.load(f)
+                    meta[synset_id][object_meta['id']] = object_meta 
+        return data, meta
 
     def __len__(self):
         return len(self.split_ids[self.split])
@@ -99,7 +109,8 @@ class ShapeNetDataset(Dataset):
     def __getitem__(self, idx):
         synset_id, file_id = self.split_ids[self.split][idx]
         mesh = self.data[synset_id][file_id]
-        return mesh, synset_id, file_id
+        meta_data = self.meta[synset_id][file_id]
+        return mesh, synset_id, file_id, meta_data
 
 
 def generate_random_camera_views(num_views=1):
@@ -107,9 +118,15 @@ def generate_random_camera_views(num_views=1):
     azim = torch.rand(num_views) * 360       # Azimuth in degrees
     return elev, azim
 
-def render_images_from_single_mesh(mesh, num_views=1, image_size=256):
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    mesh = mesh.to(device)
+
+def render_images(meshes, image_size=256, 
+                  nocs_centroid=torch.FloatTensor([0, 0, 0]),
+                  nocs_span=torch.FloatTensor([1, 1, 1]),
+                  device = torch.device("cuda:0" 
+                                        if torch.cuda.is_available() 
+                                        else "cpu")):
+    meshes = meshes.to(device)
+    num_views = len(meshes)
 
     # Generate random camera views
     elev, azim = generate_random_camera_views(num_views)
@@ -123,31 +140,48 @@ def render_images_from_single_mesh(mesh, num_views=1, image_size=256):
 
     # Initialize an OpenGL perspective camera
     R, T = look_at_view_transform(dist=1.5, elev=elev, azim=azim, device=device)
+    cameras = FoVPerspectiveCameras(device=device, R=R, T=T)
     
-    renders = []
-    frags = []
-    for i in range(num_views):
-        cameras = FoVPerspectiveCameras(device=device, R=R[i:i+1], T=T[i:i+1])
+    # Create a phong renderer by composing a rasterizer and a shader
+    renderer = MeshRendererWithFragments(
+        rasterizer=MeshRasterizer(cameras=cameras, 
+                                  raster_settings=raster_settings),
+        shader=SoftPhongShader(device=device, cameras=cameras)
+    )
 
-        # Create a phong renderer by composing a rasterizer and a shader
-        renderer = MeshRendererWithFragments(
-            rasterizer=MeshRasterizer(cameras=cameras, raster_settings=raster_settings),
-            shader=SoftPhongShader(device=device, cameras=cameras)
-        )
+    # Extract Depth
+    _, fragments = renderer(meshes)
+    depth_images = fragments.zbuf[:,:,:, :1]
 
-        # Render the mesh
-        images, fragments = renderer(mesh)
-        renders.append(images)
-        frags.append(fragments)
+    # Binary mask
+    mask_images = (depth_images.permute(0,3,1,2) > 0)   # (b, 1, h, w)
+
+    # Get 3D coordinates
+    ## Get ij frame coordinates
+    b, h, w = depth_images.shape[0:3]
+    i, j = torch.meshgrid(torch.arange(h), torch.arange(w)) 
+    center = torch.tensor([h/2.0, w/2.0]).view(2, 1, 1).to(device)
+    ji = torch.stack([j, i], dim=0).to(device).float()
     
-    renders = torch.concatenate(renders, dim=0)
-    zbuf = torch.concatenate([f.zbuf for f in frags], dim=0)
+    ## Get normalized coordinates (check pytorch3d docs)
+    ndc = (ji / center) - 1.0
+    ndc = ndc[None].repeat(5, 1, 1, 1).permute(0, 2, 3, 1)
+    ndc = torch.concatenate([ndc, depth_images.clone()], dim=-1)
+    
+    ## Transform NDC to world
+    world_coordinates = cameras.unproject_points(ndc.view(b,-1, 3))
+    world_coordinates = world_coordinates.view(b, h, w, 3)
 
-    # Extract NOCS, Depth, and Mask images
-    nocs_images = renders[..., :3]  # RGB channels
-    depth_images = zbuf[:,:,:, :1]
+    # Normalize NOCS images
+    # TODO: Verify that nocs is as expected. 
+    nocs_images = world_coordinates.permute(0, 3, 1, 2)  # (b, 3, h, w)
+    # nocs_images -= nocs_centroid[:, :, None, None].to(device)
+    # nocs_images /= nocs_span[:, :, None, None].to(device)
+    nocs_images = nocs_images * mask_images
 
-    mask_images = (depth_images > 0).float()  # Binary mask
+    # Permute and mask depth
+    depth_images = depth_images.permute(0,3,1,2) # (b, 1, h, w)
+    depth_images = depth_images * mask_images
 
     return nocs_images, depth_images, mask_images
 
@@ -160,8 +194,22 @@ dataset = ShapeNetDataset(root_dir, synset_ids, split='train', verbose=True)
 NUM_VIEWS=5
 
 # Get depth and mask for the first mesh in the dataset
-mesh, synset_id, file_name = dataset[0]
-nocs_images, depth_images, mask_images = render_images_from_single_mesh(mesh, num_views=NUM_VIEWS) 
+meshes, metas = [], []
+for _ in range(NUM_VIEWS): 
+    mesh, synset_id, file_name, meta = dataset[1]
+    meshes.append(mesh)
+    metas.append(meta)
+meshes = join_meshes_as_batch(meshes)
+
+# TODO: perform this in the dataset class
+nocs_centroid = torch.FloatTensor([meta['centroid'] for meta in metas])
+meta_max = torch.FloatTensor([meta['max'] for meta in metas])
+meta_min = torch.FloatTensor([meta['min'] for meta in metas])
+
+# Render
+nocs_images, depth_images, mask_images = render_images(meshes, 
+                                                       nocs_centroid = nocs_centroid,
+                                                       nocs_span = meta_max - meta_min) 
 
 # Display the images
 import matplotlib.pyplot as plt
@@ -169,13 +217,14 @@ import matplotlib.pyplot as plt
 for i in range(NUM_VIEWS):
     plt.figure(figsize=(10, 3))
     plt.subplot(1, 3, 1)
-    plt.imshow(nocs_images[i].cpu().numpy())
+    plt.imshow(nocs_images[i].permute(1,2,0).cpu().numpy())
     plt.title('NOCS Image')
     plt.subplot(1, 3, 2)
-    plt.imshow(depth_images[i].cpu().numpy(), cmap='gray')
+    plt.imshow(depth_images[i].permute(1,2,0).cpu().numpy(), cmap='gray')
     plt.title('Depth Image')
     plt.subplot(1, 3, 3)
-    plt.imshow(mask_images[i].cpu().numpy(), cmap='gray')
+    plt.imshow(mask_images[i].permute(1,2,0).cpu().numpy(), cmap='gray')
     plt.title('Mask Image')
     plt.show()
+    pass
 
