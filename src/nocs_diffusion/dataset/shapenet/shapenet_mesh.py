@@ -101,6 +101,9 @@ class ShapeNetDataset(Dataset):
                 with open(meta_file, 'r') as f:
                     object_meta = json.load(f)
                     meta[synset_id][object_meta['id']] = object_meta 
+                    # object_meta['centroid'] = torch.tensor(object_meta['centroid'])
+                    # object_meta['max'] = torch.tensor(object_meta['max'])
+                    # object_meta['min'] = torch.tensor(object_meta['min'])
         return data, meta
 
     def __len__(self):
@@ -114,9 +117,10 @@ class ShapeNetDataset(Dataset):
 
 
 def generate_random_camera_views(num_views=1):
+    dist = torch.rand(num_views) * 10 + 1.5  # Distance in meters
     elev = torch.rand(num_views) * 180 - 90  # Elevation in degrees
     azim = torch.rand(num_views) * 360       # Azimuth in degrees
-    return elev, azim
+    return dist, elev, azim
 
 
 def render_images(meshes, image_size=256, 
@@ -129,7 +133,7 @@ def render_images(meshes, image_size=256,
     num_views = len(meshes)
 
     # Generate random camera views
-    elev, azim = generate_random_camera_views(num_views)
+    cam_dist, cam_elev, cam_azim = generate_random_camera_views(num_views)
 
     # Define the settings for rasterization and shading
     raster_settings = RasterizationSettings(
@@ -139,8 +143,12 @@ def render_images(meshes, image_size=256,
     )
 
     # Initialize an OpenGL perspective camera
-    R, T = look_at_view_transform(dist=1.5, elev=elev, azim=azim, device=device)
-    cameras = FoVPerspectiveCameras(device=device, R=R, T=T)
+    R, T = look_at_view_transform(dist=cam_dist, 
+                                  elev=cam_elev,
+                                  azim=cam_azim,
+                                  device=device)
+    cameras = FoVPerspectiveCameras(device=device, R=R, T=T,
+                                    znear=0.1, zfar=10.0)
     
     # Create a phong renderer by composing a rasterizer and a shader
     renderer = MeshRendererWithFragments(
@@ -165,19 +173,23 @@ def render_images(meshes, image_size=256,
     
     ## Get normalized coordinates (check pytorch3d docs)
     ndc = (ji / center) - 1.0
-    ndc = ndc[None].repeat(5, 1, 1, 1).permute(0, 2, 3, 1)
+    ndc = ndc[None].repeat(num_views, 1, 1, 1).permute(0, 2, 3, 1)
     ndc = torch.concatenate([ndc, depth_images.clone()], dim=-1)
     
     ## Transform NDC to world
+    # TODO: derive camera_frame coords alongside world.
     world_coordinates = cameras.unproject_points(ndc.view(b,-1, 3))
     world_coordinates = world_coordinates.view(b, h, w, 3)
 
     # Normalize NOCS images
     # TODO: Verify that nocs is as expected. 
-    nocs_images = world_coordinates.permute(0, 3, 1, 2)  # (b, 3, h, w)
+    nocs_images = world_coordinates.permute(0, 3, 1, 2) + 0.5  # (b, 3, h, w)
     # nocs_images -= nocs_centroid[:, :, None, None].to(device)
     # nocs_images /= nocs_span[:, :, None, None].to(device)
-    nocs_images = nocs_images * mask_images
+    # nocs_images = nocs_images * mask_images
+
+    # Set NOCS background to 1.0
+    nocs_images[mask_images.expand(b,3,h,w) == 0] = 1.0
 
     # Permute and mask depth
     depth_images = depth_images.permute(0,3,1,2) # (b, 1, h, w)
@@ -191,7 +203,7 @@ root_dir = '/home/baldeeb/Data/ShapeNetCore'
 synset_ids = ['03797390']
 dataset = ShapeNetDataset(root_dir, synset_ids, split='train', verbose=True)
 
-NUM_VIEWS=5
+NUM_VIEWS=10
 
 # Get depth and mask for the first mesh in the dataset
 meshes, metas = [], []
@@ -210,6 +222,18 @@ meta_min = torch.FloatTensor([meta['min'] for meta in metas])
 nocs_images, depth_images, mask_images = render_images(meshes, 
                                                        nocs_centroid = nocs_centroid,
                                                        nocs_span = meta_max - meta_min) 
+
+# Validate nocs
+nocs_mins = nocs_images.flatten(-2,-1).min(-1).values
+nocs_maxs = nocs_images.flatten(-2,-1).max(-1).values
+
+print(f"Nocs images extremes: " +
+      f"\tmins: {nocs_mins}" + 
+      f"\tmaxs: {nocs_maxs}")
+
+assert torch.all(nocs_mins >= 0.0), "Some nocs values are smaller than 0"
+assert torch.all(nocs_maxs <= 1.0), "Some nocs values are larger than 1"
+
 
 # Display the images
 import matplotlib.pyplot as plt
