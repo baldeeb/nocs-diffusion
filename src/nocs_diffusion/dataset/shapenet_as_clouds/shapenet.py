@@ -1,14 +1,13 @@
 import os
-import random
-from copy import copy
-import torch
-from torch.utils.data import Dataset
 import h5py
+import torch
+import random
+
+from copy import copy
 from typing import Iterable
+from torch.utils.data import Dataset
 
-from pytorch3d.io import IO
-
-from .synsetids import synsetid_to_cate, cate_to_synsetid
+from ..synsetids import synsetid_to_cate, cate_to_synsetid
 
 class ShapeNetCore(Dataset):
 

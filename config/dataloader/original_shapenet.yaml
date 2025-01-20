@@ -1,0 +1,44 @@
+# TODO: Rename file to just ShapeNet
+_target_: nocs_diffusion.dataset.ShapeNetDataloader.build
+
+# Dataset
+root_dir: ./data/ShapeNetCore
+
+categories: ['mug', 'bowl', 'laptop', 'bottle', 'camera']  
+category_ids: [0, 1, 2, 3, 4]
+
+
+split: train
+# split_percentages: # Set to DEFAULT_SPLIT_PERCENTAGES
+
+verbose: False  # Whether to print out information about the dataset
+
+# Renderer
+image_size: 32 
+device: 'cuda' 
+
+# Dataloader   
+batch_size: 18
+point_per_render: 1000
+return_dict:
+  - face_points
+  - masks
+  - images
+  - category_ids
+  - perspective_2d_indices
+  - transforms  
+
+# TODO: add??
+# shuffle: true     # whether to shuffle when choosing objects
+# post_process:
+#   _target_: hydra.utils.get_method 
+#   path: nocs_diffusion.dataset.add_gaussian_noise
+
+
+
+# TODO: rename 
+# augment_face_points:
+#   _target_: nocs_diffusion.dataset.RandSe3Noise
+#   dist_range: [-0.2, 0.2]
+#   elev_range: [0,    70 ]
+#   azim_range: [0,    360]

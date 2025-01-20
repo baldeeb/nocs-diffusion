@@ -11,9 +11,9 @@ from pytorch3d.renderer import get_world_to_view_transform
 
 from pytorch3d.ops import estimate_pointcloud_normals
 
-from .renderer_tools import sample_transforms, mask_from_depth
+from ...utils import sample_transforms, mask_from_depth
 
-from .torch3d.renderers import PointRgbdRenderer
+from .renderers import PointRgbdRenderer
 
 class Torch3DRendererWrapper(nn.Module):
     '''Wraps Camera, Rasteraizer, and Renderer'''
@@ -29,7 +29,7 @@ class Torch3DRendererWrapper(nn.Module):
                  elev_range=[0, 360], 
                  azim_range=[0, 360],
                  points_in_perspective=True,
-                 **kwargs
+                 **_
                 ):
         self._aspect_ratio = aspect_ratio
         self._fov = cam_fov

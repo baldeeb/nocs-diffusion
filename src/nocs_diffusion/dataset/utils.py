@@ -99,10 +99,10 @@ def add_gaussian_noise(x, mu=0, std=0.005):
 def mask_from_depth(depth_ims, inverse=False):
     if inverse:
         masks = torch.ones_like(depth_ims)
-        masks[depth_ims!=-1] = 0
+        masks[depth_ims > 0] = 0
     else:
         masks = torch.zeros_like(depth_ims)
-        masks[depth_ims!=-1] = 1
+        masks[depth_ims > 0] = 1
     return masks
 
 def rands_in_range(range, count):
@@ -123,7 +123,7 @@ def sample_transforms(num_vars,
     )
     return Rs, Ts
 
-class RandSe3Noise:
+class RandSe3NoiseFunctor:
     def __init__(self, 
                 dist_range = [-0.2, 0.2],
                 elev_range = [0,    70],
@@ -139,3 +139,13 @@ class RandSe3Noise:
                                    self.azim_range,
                                     device=d.device)
         return torch.einsum('ijk,ilk->ijl',d, Rs) + Ts[:, None]
+    
+
+def nocs_extractor(x:torch.Tensor):
+    '''
+    Args:
+        x: [B, W, H, 3]
+    '''
+    xmin = x.view(-1, x.shape[-1]).min(0).values
+    xmax = x.view(-1, x.shape[-1]).max(0).values
+    return (x / (xmax - xmin).norm()) + 0.5
