@@ -34,7 +34,8 @@ class ShapeNetDataloader:
               split='train', 
               split_percentages=DEFAULT_SPLIT_PERCENTAGES,
               verbose=False,
-              
+              preload_objs=False,
+
               # Renderer
               image_size=256, 
               device='cuda', 
@@ -52,6 +53,7 @@ class ShapeNetDataloader:
                                   split=split,
                                   split_percentages=split_percentages,
                                   verbose=verbose,
+                                  preload=preload_objs
                                 )
         renderer = ObjRenderer(image_size,
                                device)
@@ -129,7 +131,7 @@ class ShapeNetDataloader:
         if self.categories_to_ids is not None:
             synset_id = [self.categories_to_ids[i] for i in synset_id]
 
-        renders = self.renderer(meshes)
+        renders = self.renderer(meshes, scale = meta['scale'])
         renders.update({"category_ids": torch.tensor([int(i) for i in synset_id]).float(),
                          "file_id": file_id,
                          "meta":meta})
@@ -138,5 +140,10 @@ class ShapeNetDataloader:
     @staticmethod
     def collate_shapenet_fn(batch):
         meshes, synset_ids, file_ids, metas = zip(*batch)
+        meta_batches = {}
+        for k in metas[0].keys():
+            meta_batches[k] = [m[k] for m in metas]
+            if k == 'scale':
+                meta_batches[k] = torch.stack(meta_batches[k])
         meshes = join_meshes_as_batch(meshes)
-        return meshes, synset_ids, file_ids, metas
+        return meshes, synset_ids, file_ids, meta_batches

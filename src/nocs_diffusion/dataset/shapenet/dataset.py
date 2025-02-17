@@ -8,6 +8,8 @@ from pytorch3d.io import load_objs_as_meshes
 from ..synsetids import synsetid_to_cate, cate_to_synsetid
 from .defaults import DEFAULT_SPLIT_PERCENTAGES
 
+import trimesh
+
 class ShapeNetDataset(Dataset):
     '''
     
@@ -20,13 +22,20 @@ class ShapeNetDataset(Dataset):
                  split_percentages=DEFAULT_SPLIT_PERCENTAGES, # {Train: %, Val: %, Test: %}
                  device='cpu', # Allows user to laod all meshes to a device
                  verbose=False, # Print loading information
-                 preload=False # Load all meshes to memory
+                 preload=False, # Load all meshes to memory
+                 as_clouds=False, # Load all meshes as point clouds
+                 points_per_cloud=5000, # Number of points to sample from each mesh
                 ):
         self.preload = preload
         self.device = device
         self.root_dir = root_dir
         self.split = split
         self.split_percentages = split_percentages
+
+        # When set, objects are stored as clouds.
+        self.as_clouds = as_clouds
+        self.points_per_cloud = points_per_cloud
+
         if synset_ids:
             self.synset_ids = synset_ids
         elif synset_names:
@@ -38,7 +47,7 @@ class ShapeNetDataset(Dataset):
         
         self._unzip_objects_as_needed()
         self.split_info = self._load_split_meta() # {split: LIST[(synset_id, obj_id, file_location), ....]}
-        self.data, self.meta = self._load_data() if self.preload else None, None
+        (self.data, self.meta) = self._load_data() if self.preload else (None, None)
 
         if verbose:
             print(f"Loaded {len(self.split_info[self.split])} samples for split {self.split}")
@@ -67,7 +76,7 @@ class ShapeNetDataset(Dataset):
                 obj_files = [f"{d}/{f}" for d, _, files in os.walk(folder_path) 
                                         for f in files 
                                         if f.endswith('.obj')]
-                obj_ids = [dir.split('/')[-3] for dir in obj_files]
+                fids = [dir.split('/')[-2] for dir in obj_files]
 
                 n_samples = len(obj_files)
                 idxs = torch.randperm(n_samples).numpy()
@@ -75,11 +84,11 @@ class ShapeNetDataset(Dataset):
                 train_count = int(n_samples * self.split_percentages['train'])
                 val_count = int(n_samples * self.split_percentages['val'])
                 
-                split_meta['train'] = [(synset_id, obj_ids[i], obj_files[i]) 
+                split_meta['train'] = [(synset_id, fids[i], obj_files[i]) 
                                        for i in idxs[:train_count]]
-                split_meta['val']   = [(synset_id, obj_ids[i], obj_files[i]) 
+                split_meta['val']   = [(synset_id, fids[i], obj_files[i]) 
                                        for i in idxs[train_count: train_count + val_count]]
-                split_meta['test']  = [(synset_id, obj_ids[i], obj_files[i])
+                split_meta['test']  = [(synset_id, fids[i], obj_files[i])
                                        for i in idxs[train_count + val_count:]]
                 torch.save(split_meta, split_file)
         
@@ -96,35 +105,55 @@ class ShapeNetDataset(Dataset):
             obj_files = [f"{d}/{f}" for d, _, files in os.walk(folder_path) 
                                     for f in files 
                                     if f.endswith('.obj')]
-            ids = [dir.split('/')[-3] for dir in obj_files]
-            data[synset_id], meta[synset_id] = self.get_data_and_meta_dicts(ids, obj_files)
-            # objs = load_objs_as_meshes(obj_files, device=self.device, 
-            #                         create_texture_atlas=True,
-            #                         load_textures=True)
-            # data[synset_id] = {id: obj for id, obj in zip(ids, objs)}
-            # meta_files = [f"{f[:-4]}.json" for f in obj_files]
-            # for meta_file in meta_files:
-            #     with open(meta_file, 'r') as f:
-            #         object_meta = json.load(f)
-            #         meta[synset_id][object_meta['id']] = object_meta 
-
+            data[synset_id], meta[synset_id] = self.get_data_and_meta_dicts(obj_files)
         return data, meta
     
-    def get_data_and_meta_dicts(self, obj_ids, obj_files):
+    def get_data_and_meta_dicts(self, obj_files):
+        # TODO: Separate get data and get meta
         data, meta = {}, {}
-        objs = load_objs_as_meshes(obj_files, device=self.device, 
-                                    create_texture_atlas=True,
-                                    load_textures=True)
-        data = {id: obj for id, obj in zip(obj_ids, objs)}
 
-        meta_files = [f"{f[:-4]}.json" for f in obj_files]
-        for meta_file in meta_files:
-            with open(meta_file, 'r') as f:
-                object_meta = json.load(f)
-                meta[object_meta['id']] = object_meta 
-                # object_meta['centroid'] = torch.tensor(object_meta['centroid'])
-                # object_meta['max'] = torch.tensor(object_meta['max'])
-                # object_meta['min'] = torch.tensor(object_meta['min'])
+        # Load meshes
+        if self.as_clouds:
+            # Load as clouds
+            objs = []
+            for f in obj_files:
+                mesh = trimesh.load(f, force='mesh', skip_materials=True)
+                points = mesh.sample(self.points_per_cloud)
+                objs.append(points)
+        else:
+            # load as meshes
+            objs = load_objs_as_meshes(obj_files, device=self.device, 
+                                        create_texture_atlas=True,
+                                        load_textures=True)
+        
+        # Read meta data files
+        file_ids = [f.split('/')[-2] for f in obj_files]
+        for f, fid, obj in zip(obj_files, file_ids, objs): 
+            data[fid] = obj            
+ 
+            shapenet_meta = os.path.exists(f"{f[:-4]}.json")
+            nocs_meta = os.path.exists(f"{os.path.dirname(f)}/bbox.json")
+            if shapenet_meta:
+                with open(f"{f[:-4]}.json", 'r') as f:
+                    m = json.load(f)
+                    # scale of the centered normalized object
+                    m['scale'] = (torch.tensor(m['max']) -
+                                  torch.tensor(m['min'])
+                                 ).norm()
+                    meta[fid] = m 
+            elif nocs_meta:
+                # NOTE: not yet set to handle this.
+                # read f"{os.path.dirname(f)}/bbox.json"
+                meta[fid] = {}
+
+        # Post process data
+        if self.as_clouds:
+            for k, v in data.items():
+                
+                # Center Normalized Objects
+                offset = meta[k]['min'] + meta[k]['max'] / 2.0
+                data[k] = torch.stack(v) + offset
+
         return data, meta
     
     def __len__(self):
@@ -135,9 +164,9 @@ class ShapeNetDataset(Dataset):
         if self.preload:
             mesh = self.data[synset_id][file_id]
             meta_data = self.meta[synset_id][file_id]
-            return mesh, synset_id, file_id, meta_data
         else:
-            obj, meta_data = self.get_data_and_meta_dicts([file_id], [file_path])
-            return obj[file_id], synset_id, file_id, meta_data[file_id]
+            obj, meta_data = self.get_data_and_meta_dicts([file_path])
+            mesh = obj[file_id]
 
+        return mesh, synset_id, file_id, meta_data
 

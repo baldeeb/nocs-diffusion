@@ -22,23 +22,31 @@ class ObjRenderer:
         self.device = device
         return self
     
-    def __call__(self, 
-                 meshes,
-                 R=None, T=None):
+    def __call__(self, meshes, R=None, T=None, scale=None):
+        """
+            meshes: pytorch3d.structures.Meshes normalized to unit sphere????
+            R: torch.Tensor (b, 3, 3)
+            T: torch.Tensor (b, 3)
+            scale: torch.Tensor (b, 1)
+        """
         num_views = len(meshes)
         if R is None or T is None:
             R, T = self.sample_camera_viewing_transforms(num_views)
-        
+
         meshes = meshes.to(self.device)
         R = R.to(self.device)
         T = T.to(self.device)
+        scale = scale.to(self.device)
+
+        if scale is not None:
+            meshes = meshes.scale_verts(scale)
         
         # Define the settings for rasterization and shading
         raster_settings = RasterizationSettings(
             image_size=self.image_size,
             blur_radius=0.0,
             faces_per_pixel=1,
-            bin_size=0
+            bin_size=5
         )
 
         # Initialize an OpenGL perspective camera
@@ -88,7 +96,12 @@ class ObjRenderer:
              j[None, :, :, None].expand(b, h, w, 1).to(self.device)], 
             dim=-1)
         ## TODO: do not recalculate the mask here. 
-        camera_pts = [camera_coordinates[i, mask_images[i].permute(1,2,0).expand(h, w, 5)].view(-1, 5) for i in range(b)]
+        camera_pts = [camera_coordinates[i, 
+                                         mask_images[i]\
+                                            .permute(1,2,0)\
+                                            .expand(h, w, 5)
+                                        ].view(-1, 5)
+                      for i in range(b)]
         perspective_2d_idxs = [c[:, -2:].long() for c in camera_pts]
         camera_pts = [c[:, :3] for c in camera_pts]
 
@@ -97,11 +110,9 @@ class ObjRenderer:
         nocs_images = world_coordinates.permute(0, 3, 1, 2) + 0.5  # (b, 3, h, w)
         nocs_images[mask_images.expand(b,3,h,w) == 0] = 1.0  # this seems to help in trainig.
 
-        # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-        # TODO: Figure out why there remains some out unnormalized points
-        # Note: The validation below shows some <0.0 and >1.0 values
+        # Clamp to 0-1 to ignore minor float errors
+        nocs_images /= scale[:, None, None, None]
         nocs_images = torch.clamp(nocs_images, 0.0, 1.0)
-        # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
         # Permute and mask depth
         depth_images = depth_images.permute(0,3,1,2) # (b, 1, h, w)
@@ -117,14 +128,15 @@ class ObjRenderer:
                 "depth_images": depth_images,
                 "mask_images":  mask_images,
                 "face_points":  camera_pts,
-                "transforms": world_to_view_transforms,
+                "transforms": world_to_view_transforms.inverse(),
                 "face_pts_2d_idxs": perspective_2d_idxs,
                 "projection_matrix": cameras.get_projection_transform()
                 }
 
     def generate_random_camera_viewing_angles(self, count=1):
-        dist = torch.rand(count) * 1.5 + 1  # Distance in meters
-        elev = torch.rand(count) * 180 - 90  # Elevation in degrees
+        # return 1.20, 45.0, 225.0
+        dist = torch.rand(count) * 0.5 + 1.0   # Distance in meters
+        elev = torch.rand(count) * 90        # Elevation in degrees
         azim = torch.rand(count) * 360       # Azimuth in degrees
         return dist, elev, azim
 
