@@ -1,6 +1,5 @@
 
-from .torch3d.renderer_wrapper import mask_from_depth
-from ..utils import list_to_torch_mat
+from ..utils import list_to_torch_mat, mask_from_depth
 from .shapenet_renderer import ShapeNetRenderer
 
 import torch

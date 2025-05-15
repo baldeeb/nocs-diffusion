@@ -1,13 +1,12 @@
 from .shapenet import ShapeNetCore, cate_to_synsetid
-from .torch3d.renderer_wrapper import Torch3DRendererWrapper, sample_transforms
-from ..utils import nocs_extractor
+from ..utils import nocs_extractor, RandomViewPointCloudRenderer, sample_transforms
 
 import torch
 
 class ShapeNetRenderer:
     def __init__(self, 
                  dataset:ShapeNetCore, 
-                 renderer:Torch3DRendererWrapper, 
+                 renderer:RandomViewPointCloudRenderer, 
                  num_objects:int, 
                  batch_size:int,
                  shuffle:bool=True,
@@ -77,7 +76,9 @@ class ShapeNetRenderer:
                                 cates=categories,
                                 split=split,
                                 scale_mode=scale_mode)
-        renderer = Torch3DRendererWrapper(image_size=image_size, **kwargs)
+        renderer = RandomViewPointCloudRenderer(
+                        image_size=image_size, 
+                        **kwargs)
         
         cates_to_ids = {c:i for c, i in zip(categories, category_ids)}
         return ShapeNetRenderer(dataset=dataset, 

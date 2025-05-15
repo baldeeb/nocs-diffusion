@@ -6,9 +6,10 @@ from torch.utils.data import Dataset
 from pytorch3d.io import load_objs_as_meshes
 
 from ..synsetids import synsetid_to_cate, cate_to_synsetid
-from .defaults import DEFAULT_SPLIT_PERCENTAGES
+from . import DEFAULT_SPLIT_PERCENTAGES
 
-import trimesh
+from ..utils.mesh_to_cloud import load_clouds_from_obj_files
+
 
 class ShapeNetDataset(Dataset):
     '''
@@ -76,7 +77,7 @@ class ShapeNetDataset(Dataset):
                 obj_files = [f"{d}/{f}" for d, _, files in os.walk(folder_path) 
                                         for f in files 
                                         if f.endswith('.obj')]
-                fids = [dir.split('/')[-2] for dir in obj_files]
+                fids = [dir.split('/')[-3] for dir in obj_files]
 
                 n_samples = len(obj_files)
                 idxs = torch.randperm(n_samples).numpy()
@@ -112,22 +113,21 @@ class ShapeNetDataset(Dataset):
         # TODO: Separate get data and get meta
         data, meta = {}, {}
 
-        # Load meshes
-        if self.as_clouds:
-            # Load as clouds
-            objs = []
-            for f in obj_files:
-                mesh = trimesh.load(f, force='mesh', skip_materials=True)
-                points = mesh.sample(self.points_per_cloud)
-                objs.append(points)
-        else:
-            # load as meshes
+        # Load data from files
+        if self.as_clouds: 
+            # loading as clouds
+            objs = load_clouds_from_obj_files(obj_files, 
+                                              self.points_per_cloud)
+            objs = [torch.tensor(o, dtype=torch.float32, device=self.device)
+                    for o in objs]
+        else: 
+            # loading as meshes
             objs = load_objs_as_meshes(obj_files, device=self.device, 
                                         create_texture_atlas=True,
                                         load_textures=True)
         
         # Read meta data files
-        file_ids = [f.split('/')[-2] for f in obj_files]
+        file_ids = [f.split('/')[-3] for f in obj_files]
         for f, fid, obj in zip(obj_files, file_ids, objs): 
             data[fid] = obj            
  
@@ -151,8 +151,9 @@ class ShapeNetDataset(Dataset):
             for k, v in data.items():
                 
                 # Center Normalized Objects
-                offset = meta[k]['min'] + meta[k]['max'] / 2.0
-                data[k] = torch.stack(v) + offset
+                offset = (torch.tensor(meta[k]['min']) + 
+                          torch.tensor(meta[k]['max'])) / 2.0
+                data[k] = v - offset.to(v.device)
 
         return data, meta
     

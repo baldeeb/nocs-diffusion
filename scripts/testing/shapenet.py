@@ -1,6 +1,6 @@
 import torch
-from nocs_diffusion.dataset import ShapeNetDataloader
-from nocs_diffusion.dataset.shapenet import ObjRenderer, ShapeNetDataset
+from nocs_diffusion.dataset.shapenet import ShapeNetDataset, ShapeNetDataloader
+from nocs_diffusion.dataset.utils import MeshRenderer, RandomViewPointCloudRenderer
 
 from time import time
 
@@ -9,6 +9,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 
 from pytorch3d.vis.plotly_vis import plot_batch_individually
+
 
 def display_clouds(c1, c2, names=['PointCloud 1', 'PointCloud 2']):
     fig = plt.figure()
@@ -35,25 +36,28 @@ if __name__ == '__main__':
     root_dir = '/home/baldeeb/Data/ShapeNetCore'
     synset_ids = ['03797390']
     NUM_VIEWS=4
-    dataset = ShapeNetDataset(root_dir, synset_ids, split='train', verbose=True)
+    IMAGE_SIZE = 64
+    AS_CLOUDS = True 
+ 
+    dataset = ShapeNetDataset(
+        root_dir, synset_ids, split='train',
+        verbose=True, as_clouds=AS_CLOUDS)
+    
+    if AS_CLOUDS:
+        renderer = RandomViewPointCloudRenderer(IMAGE_SIZE)
+    else:
+        renderer = MeshRenderer(IMAGE_SIZE)
 
-    # Visualize meshes from the dataset
-    if False:
-        mesh = [dataset[i][0] for i in range(24)]
-        fig = plot_batch_individually([mesh], ncols=6)
-        fig.show()
-
-    renderer = ObjRenderer(256, "cuda")
     nocs_dataset = ShapeNetDataloader(
-        dataset, 
-        renderer, 
-        batch_size=NUM_VIEWS,
-        return_dict=['images', 'masks', 'face_points', 'category_ids', "transforms"],
+            dataset, renderer, batch_size=NUM_VIEWS,
+            return_dict=['images', 'masks', 'face_points',
+                         'category_ids', "transforms"],
         )
 
     t0 = time()    
     renders = nocs_dataset()
     print(f'rendering took: {time() - t0}')
+    
     # Validate nocs
     bool_mask = renders['masks'].expand(-1,3,-1,-1) == 1
     nocs_pts = renders["images"][bool_mask].view(-1, 3)
@@ -63,8 +67,18 @@ if __name__ == '__main__':
     assert torch.all(nocs_pts.min(0).values >= -1.0), "Some nocs values are smaller than 0"
     assert torch.all(nocs_pts.max(0).values <= 1.0), "Some nocs values are larger than 1"
 
+    ################################################################################
+    ################################ Visualizations ################################
+    ################################################################################
+
     # Display the images
     import matplotlib.pyplot as plt
+
+    # Visualize meshes from the dataset
+    if False:
+        mesh = [dataset[i][0] for i in range(24)]
+        fig = plot_batch_individually([mesh], ncols=6)
+        fig.show()
 
     def show_image_grid(images, title, num_cols=3):
         num_rows = int(len(images)/num_cols)
@@ -81,8 +95,6 @@ if __name__ == '__main__':
     fa2 = show_image_grid(renders["depths"].permute(0,2,3,1).cpu().numpy(), "Depth Images", 2)
     fa3 = show_image_grid(renders["masks"].permute(0,2,3,1).cpu().numpy(),  "Mask Images" , 2)
 
-    # plt.show()
-
     img2pcd_idxs = renders['perspective_2d_indices']
     c1 = torch.stack([p[:,  i[:, 0], i[:, 1]].T 
                     for p, i in zip(renders['images'], img2pcd_idxs)])
@@ -96,5 +108,3 @@ if __name__ == '__main__':
 
     plt.show()
     pass
-
-

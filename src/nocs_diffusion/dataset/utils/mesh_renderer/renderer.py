@@ -1,3 +1,10 @@
+# NOTE
+# This code is incomplete and buggy.
+#   1. Need to verify that assumptions on initial mesh 
+#      size limits and centering are correct.
+#   2. Deriving NOCS coordinates is BAD / WRONG.
+#   3. Transform applications need to ve validated.
+
 import torch
 
 from pytorch3d.renderer import (
@@ -13,15 +20,10 @@ from pytorch3d.renderer import (
 from pytorch3d.renderer.cameras import look_at_view_transform
 
 
-class ObjRenderer:
-    def __init__(self, image_size=256, device='cpu'):
-        self.device = device
+class MeshRenderer:
+    def __init__(self, image_size=256):
         self.image_size = image_size
 
-    def to(self, device):
-        self.device = device
-        return self
-    
     def __call__(self, meshes, R=None, T=None, scale=None):
         """
             meshes: pytorch3d.structures.Meshes normalized to unit sphere????
@@ -29,24 +31,24 @@ class ObjRenderer:
             T: torch.Tensor (b, 3)
             scale: torch.Tensor (b, 1)
         """
+        self.device = meshes.device
         num_views = len(meshes)
         if R is None or T is None:
             R, T = self.sample_camera_viewing_transforms(num_views)
 
-        meshes = meshes.to(self.device)
-        R = R.to(self.device)
-        T = T.to(self.device)
-        scale = scale.to(self.device)
+        if isinstance(scale, float):
+            scale = torch.tensor([scale])
+            if num_views > 1:
+                scale = scale.expand(num_views)
 
         if scale is not None:
-            meshes = meshes.scale_verts(scale)
+            meshes = meshes.scale_verts(scale.to(self.device))
         
         # Define the settings for rasterization and shading
         raster_settings = RasterizationSettings(
             image_size=self.image_size,
             blur_radius=0.0,
             faces_per_pixel=1,
-            bin_size=5
         )
 
         # Initialize an OpenGL perspective camera
@@ -111,7 +113,8 @@ class ObjRenderer:
         nocs_images[mask_images.expand(b,3,h,w) == 0] = 1.0  # this seems to help in trainig.
 
         # Clamp to 0-1 to ignore minor float errors
-        nocs_images /= scale[:, None, None, None]
+        if scale is not None:
+            nocs_images /= scale[:, None, None, None]
         nocs_images = torch.clamp(nocs_images, 0.0, 1.0)
 
         # Permute and mask depth

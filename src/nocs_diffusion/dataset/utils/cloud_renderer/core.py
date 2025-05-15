@@ -3,7 +3,7 @@
 from pytorch3d.renderer import PointsRenderer
 import torch
 
-class PointRgbdRenderer(PointsRenderer):
+class PointCloudRenderer(PointsRenderer):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -45,6 +45,6 @@ class PointRgbdRenderer(PointsRenderer):
                     for i, prspctv_i in enumerate(perspective_2d_idxs)]
         
         return {'images':images, 
-                'depths': depths, 
+                'depth_images': depths, 
                 'face_points':face_pts,
                 'face_pts_2d_idxs': perspective_2d_idxs}

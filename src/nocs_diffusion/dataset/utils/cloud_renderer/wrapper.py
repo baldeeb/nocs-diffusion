@@ -1,21 +1,14 @@
 import torch
-from torch import nn
-from pytorch3d.structures import Pointclouds
 
-from pytorch3d.renderer import look_at_view_transform
-from pytorch3d.renderer import FoVPerspectiveCameras, FoVOrthographicCameras
-from pytorch3d.renderer import PointsRasterizationSettings 
-from pytorch3d.renderer import PointsRasterizer
+from pytorch3d.structures import Pointclouds
 from pytorch3d.renderer import AlphaCompositor
 from pytorch3d.renderer import get_world_to_view_transform
 
-from pytorch3d.ops import estimate_pointcloud_normals
+from .core import PointCloudRenderer
+from .factory import RendererFactory
+from ...utils import sample_transforms
 
-from ...utils import sample_transforms, mask_from_depth
-
-from .renderers import PointRgbdRenderer
-
-class Torch3DRendererWrapper(nn.Module):
+class RandomViewPointCloudRenderer(torch.nn.Module):
     '''Wraps Camera, Rasteraizer, and Renderer'''
     def __init__(self,
                  image_size=64,
@@ -31,15 +24,16 @@ class Torch3DRendererWrapper(nn.Module):
                  points_in_perspective=True,
                  **_
                 ):
-        self._aspect_ratio = aspect_ratio
-        self._fov = cam_fov
-        self._znear = znear
-        self._zfar = zfar
-        self._image_size = image_size
-        self.raster_settings = PointsRasterizationSettings(
+        self.renderer_constructor = RendererFactory(
+            aspect_ratio=aspect_ratio,
+            cam_fov=cam_fov,
+            znear=znear,
+            zfar=zfar,
             image_size=image_size,
-            radius=pt_radius,
-            points_per_pixel=pts_per_pxl
+            pt_radius=pt_radius,
+            pts_per_pxl=pts_per_pxl,
+            Renderer=PointCloudRenderer,
+            Compositor=AlphaCompositor
         )
         self._dist_range = dist_range
         self._elev_range = elev_range
@@ -47,34 +41,15 @@ class Torch3DRendererWrapper(nn.Module):
 
         self.points_in_perspective = points_in_perspective
 
-    def _get_renderer(self, feat_size, Rs, Ts, device):
-        cameras = FoVPerspectiveCameras(
-            device=device, 
-            aspect_ratio=self._aspect_ratio,
-            fov=self._fov,
-            R=Rs, T=Ts,
-            znear=self._znear
-        )
-        rasterizer = PointsRasterizer(
-            cameras=cameras,
-            raster_settings=self.raster_settings
-        )
-        renderer = PointRgbdRenderer(
-            rasterizer=rasterizer,
-            compositor=AlphaCompositor(background_color=torch.ones(feat_size)),
-        )
-        return renderer
-
-    def get_projection_matrix(self) -> torch.Tensor:
-        self._K = FoVPerspectiveCameras().compute_projection_matrix(
-            self._znear, self._zfar, self._fov, self._aspect_ratio, degrees=True)
-        return self._K
-
     def _sample_transforms(self, n):
         return sample_transforms(n, self._dist_range, self._elev_range, 
                                  self._azim_range,)
 
-    def __call__(self, verts, feats, normals=None, num_variations=None, Rs=None, Ts=None):
+    def __call__(self, verts, feats,
+                 normals=None,
+                 num_variations=None,
+                 Rs=None, Ts=None,
+                 scale=None):
         '''
         This function currently is intended to render a single cloud from varied views within a range.
         Args:
@@ -90,6 +65,12 @@ class Torch3DRendererWrapper(nn.Module):
             assert len(Rs) == len(Ts), "Rotations and Translations should be equal in count."
             num_variations = len(Rs)
         else: assert False, "Either num_variations or bot Rs & Ts should be set."
+        
+        if isinstance(scale, float):
+            scale = torch.tensor([scale])
+
+        if scale is not None:
+            verts = verts * scale.to(verts.device)[:, None, None]
 
         if verts.ndim == 2:  # if a single object is givens
             verts = verts.expand(num_variations, -1, -1)
@@ -102,7 +83,8 @@ class Torch3DRendererWrapper(nn.Module):
 
         pts = Pointclouds(points=verts, features=feats,)
         feature_dim = feats.shape[-1]
-        render = self._get_renderer(feature_dim, Rs, Ts, pts.device)
+        render = self.renderer_constructor.get(feature_dim, Rs, Ts, pts.device)
+        self._K = self.renderer_constructor.get_projection_matrix()
         result = render(pts)
         
         if normals is not None:
@@ -122,10 +104,12 @@ class Torch3DRendererWrapper(nn.Module):
             test its effectiveness through experiemtns.'''
             def get_transformed_pts():
                 for R, t, pts in zip(Rs, Ts, result['face_points']):
-                    yield get_world_to_view_transform(R[None], t[None]).transform_points(pts[None])[0]
+                    tf = get_world_to_view_transform(R[None], t[None])
+                    tf = tf.to(pts.device)
+                    yield tf.transform_points(pts[None])[0]
             result['face_points'] = [p for p in get_transformed_pts()]
             # Rt = get_world_to_view_transform(Rs, Ts)
             # result['face_points'] = [Rti.transform_points(p) for Rti, p in zip(Rt, result['face_points']) ]
-        result['Rts'] = get_world_to_view_transform(Rs, Ts)
+        result['transforms'] = get_world_to_view_transform(Rs, Ts)
 
         return result

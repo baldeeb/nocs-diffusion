@@ -3,11 +3,15 @@ _target_: nocs_diffusion.dataset.ShapeNetDataloader.build
 
 # Dataset
 root_dir: ./data/ShapeNetCore
+# root_dir: ./data/nocsObjModels
 
-categories: ['mug', 'bowl', 'laptop', 'bottle', 'camera']  
-category_ids: [0, 1, 2, 3, 4]
+# categories: ['mug', 'bowl', 'laptop', 'bottle', 'camera', 'tin_can']  
+# category_ids: [0, 1, 2, 3, 4, 5]
 
+categories: ['mug']  
+category_ids: [0]
 
+preload_objs: true  # Load all meshes to memory
 split: train
 # split_percentages: # Set to DEFAULT_SPLIT_PERCENTAGES
 
@@ -15,7 +19,7 @@ verbose: False  # Whether to print out information about the dataset
 
 # Renderer
 image_size: 32 
-device: 'cuda' 
+device: cuda
 
 # Dataloader   
 batch_size: 18
