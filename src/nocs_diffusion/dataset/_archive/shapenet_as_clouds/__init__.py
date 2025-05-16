@@ -1,2 +1,0 @@
-from .shapenet_renderer import ShapeNetRenderer
-from .dataloader import ShapeNetDataloader
