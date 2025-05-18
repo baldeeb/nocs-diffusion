@@ -41,3 +41,26 @@ class RenderedNocsDataset(Dataset):
             data = self.transform(data)
 
         return data
+    
+    @staticmethod
+    def collate_fn(batch):
+        """
+        Custom collate function to handle variable-sized tensors in the batch.
+        """
+        # Stack images, depths, and masks
+        images = torch.cat([item['images'] for item in batch])
+        depths = torch.cat([item['depths'] for item in batch])
+        masks = torch.cat([item['masks'] for item in batch])
+
+        # Create a dictionary to hold the batch data
+        batch_data = {
+            'images': images,
+            'depths': depths,
+            'masks': masks,
+            'class_id': torch.tensor([item['class_id'] for item in batch]),
+            'synset_id': [item['synset_id'] for item in batch],
+            'object_id': [item['object_id'] for item in batch],
+            'render_id': [item['render_id'] for item in batch]
+        }
+
+        return batch_data
