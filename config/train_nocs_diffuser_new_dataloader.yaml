@@ -1,22 +1,21 @@
 defaults:
   - logging
-  - dataloader: shapenet
+  - dataloader: original_shapenet
   - model: nocs_diffuser
-  - .@validate.dataloader: dataloader/shapenet
+  - .@validate.dataloader: dataloader/original_shapenet
   - _self_
 
 device: cuda:0
 
 logger:
   name:    train_nocs_diffuser
-
+    
 # Data
 image_size: 64
 dataloader:
-  renderer:
-    split: 'train'
-    image_size: ${image_size}
-    
+  split: train
+  image_size: ${image_size}
+
 # Training
 num_steps: 100000        # Epochs to train for
 steps_before_save: 1000  # Batches before saving a checkpoint
@@ -39,10 +38,10 @@ validate:
   num_batches: 5       # Batches to evaluate on
   num_inference_steps: 20
   dataloader: 
-    renderer:
-      split: test
-      batch_size: 8
-      image_size: ${image_size}  
+    split: test
+    batch_size: 8
+    image_size: ${image_size}
+      
 
 # Optimizer
 lr: 1e-4

@@ -1,4 +1,5 @@
-''' This work is taken directly from the BYOC https://github.com/mbanani/byoc'''
+''' This work is taken directly from the BYOC https://github.com/mbanani/byoc
+Edited and adjusted to meet the needs of the NOCS Diffusion project. '''
 
 from typing import Optional
 
@@ -6,7 +7,9 @@ import torch
 
 # @torch.jit.script
 def transform_points_Rt(
-    points: torch.Tensor, viewpoint: torch.Tensor, inverse: bool = False
+    points: torch.Tensor, viewpoint: torch.Tensor,
+    inverse: bool = False,
+    scale: torch.Tensor = None
 ):
     N, H, W = viewpoint.shape
     assert H == 3 and W == 4, "Rt is B x 3 x 4 "
@@ -18,6 +21,8 @@ def transform_points_Rt(
     r = r.transpose(1, 2).contiguous()
 
     # invert if needed
+    if scale is not None:
+        points = points * scale[:, None, :]
     if inverse:
         points = points - t[:, None, :]
         points = points.bmm(r.inverse())
@@ -65,10 +70,10 @@ def align(corres, P, Q, align_cfg=DEFAULT_ALIGN_CONFIG(), overwrite_weighting=No
     corr_P = nn_gather(P, corr_P_idx)
     corr_Q = nn_gather(Q, corr_Q_idx)
 
-    Rt = randomized_weighted_procrustes(corr_P, corr_Q, weights, align_cfg)
+    Rt, scale = randomized_weighted_procrustes(corr_P, corr_Q, weights, align_cfg)
 
     # Calculate correspondance loss
-    corr_P_rot = transform_points_Rt(corr_P, Rt)
+    corr_P_rot = transform_points_Rt(corr_P, Rt, scale)
     dist_PQ = (corr_P_rot - corr_Q).norm(p=2, dim=2)
 
     if overwrite_weighting is None:
@@ -87,19 +92,19 @@ def align(corres, P, Q, align_cfg=DEFAULT_ALIGN_CONFIG(), overwrite_weighting=No
     else:
         raise ValueError(f"Unknown loss weighting: {loss_weighting}")
 
-    return Rt, corr_loss, dist_PQ
+    return Rt, corr_loss, dist_PQ, scale
 
 
 def simple_align(P, Q, detach_transform=True):
-    Rt = randomized_weighted_procrustes(P, Q, weights=None, align_cfg=DEFAULT_ALIGN_CONFIG())
+    Rt, scale = randomized_weighted_procrustes(P, Q, weights=None, align_cfg=DEFAULT_ALIGN_CONFIG())
     if detach_transform: Rt = Rt.detach()
     
     # Calculate correspondance loss
-    corr_P_rot = transform_points_Rt(P, Rt)
+    corr_P_rot = transform_points_Rt(P, Rt, scale=scale)
     dist_PQ = (corr_P_rot - Q).norm(p=2, dim=2)
     corr_loss = dist_PQ.mean(dim=1)
     
-    return Rt, corr_loss, dist_PQ
+    return Rt, corr_loss, dist_PQ, scale
 
 def randomized_weighted_procrustes(pts_ref, pts_tar, weights, align_cfg=DEFAULT_ALIGN_CONFIG()):
     """
@@ -156,8 +161,9 @@ def randomized_weighted_procrustes(pts_ref, pts_tar, weights, align_cfg=DEFAULT_
         weights_c = weights_c.view(batch_size * N, num_matches).contiguous()
 
     # Initialize VP
-    Rt = paired_svd(pts_ref_c, pts_tar_c, weights_c)
+    Rt, scales = paired_svd(pts_ref_c, pts_tar_c, weights_c)
     Rt = Rt.view(batch_size, N, 3, 4).contiguous()
+    scales = scales.view(batch_size, N, 3).contiguous()
 
     # for now, I am not repeating the final calculation, just going straight to
     # reassignment; basically no backproping through optimization
@@ -170,7 +176,8 @@ def randomized_weighted_procrustes(pts_ref, pts_tar, weights, align_cfg=DEFAULT_
     for k in range(N):
         # calculate chamfer loss for back prop
         c_Rt = Rt[:, k]
-        pts_ref_rot = transform_points_Rt(pts_ref, c_Rt, inverse=False)
+        c_s = scales[:, k]
+        pts_ref_rot = transform_points_Rt(pts_ref, c_Rt, inverse=False, scale=c_s)
         c_chamfer = (pts_ref_rot - pts_tar).norm(dim=2, p=2)
 
         if weights is not None:
@@ -185,7 +192,8 @@ def randomized_weighted_procrustes(pts_ref, pts_tar, weights, align_cfg=DEFAULT_
 
     # convert qt to Rt
     Rt = Rt[torch.arange(batch_size), best_seed.long()]
-    return Rt
+    scales = scales[torch.arange(batch_size), best_seed.long()]
+    return Rt, scales
 
 
 @torch.jit.script
@@ -229,8 +237,18 @@ def paired_svd(X, Y, weights: Optional[torch.Tensor] = None):
     # Calculate H Matrix.
     H = torch.matmul(X_c.transpose(1, 2).contiguous(), Y_c)
 
+
     # Compute SVD
-    U, S, V = torch.svd(H)
+    U, D, V = torch.svd(H)
+
+    # Compute the scaling factor
+    # S = reflect[None, :, :] if torch.det(H) < 0 else torch.eye(3).to(X)[None, :, :]
+    S = reflect[None, :, :]  # TODO: change to conditional mirroring depending on the determinant
+    X_std2 = X_c.square().sum(1)
+    DdotS = torch.einsum('bi,bji->bj', D, S)
+    DS_trace = torch.diagonal(DdotS, dim1=-2, dim2=-1).sum(-1)
+    scales = DS_trace / X_std2
+    # NOTE: suggested alternative, not from paper: scales = (Y_c.square().sum(-1)  / X_c.square().sum(-1)).sqrt()
 
     # Compute R
     U_t = U.transpose(2, 1).contiguous()
@@ -245,4 +263,4 @@ def paired_svd(X, Y, weights: Optional[torch.Tensor] = None):
     # Calculate t
     t = Y_mean[:, 0, :, None] - torch.matmul(R, X_mean[:, 0, :, None])
     Rt = torch.cat((R, t[:, :, 0:1]), dim=2)
-    return Rt.float()
+    return Rt.float(), scales.float()

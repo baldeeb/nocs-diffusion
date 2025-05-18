@@ -1,4 +1,4 @@
-from  nocs_diffusion.dataset import ShapeNetDataloader, ShapeNetRenderer, add_gaussian_noise, RandSe3Noise
+from  nocs_diffusion.dataset import ShapeNetDataloader, ShapeNetRenderer, add_gaussian_noise, RandSe3NoiseFunctor
 from nocs_diffusion.utils import viz_image_batch
 
 
@@ -19,7 +19,7 @@ if __name__=='__main__':
     # feature_extractor= lambda *args, **kwargs : 0 
   )
 
-  se3noiseaug = RandSe3Noise(
+  se3noiseaug = RandSe3NoiseFunctor(
     dist_range=[-0.2, 0.2],
     elev_range=[0,    70 ],
     azim_range=[0,    360],

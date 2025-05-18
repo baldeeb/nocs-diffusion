@@ -1,6 +1,7 @@
-  _target_: nocs_diffusion.dataset.ShapeNetDataloader
+# TODO: rename file to shapenet_as_cloud
+  _target_: nocs_diffusion.dataset.CloudShapeNetDataloader
   renderer:
-    _target_: nocs_diffusion.dataset.ShapeNetRenderer.build
+    _target_: nocs_diffusion.dataset.CloudShapeNetRenderer.build
     path: './data/shapenet.hdf5'
     categories: ['mug', 'bowl', 'laptop', 'bottle', 'camera']
     category_ids: [0, 1, 2, 3, 4]
