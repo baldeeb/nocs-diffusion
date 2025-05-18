@@ -8,4 +8,11 @@ DEFAULT_SPLIT_PERCENTAGES = {
 from .dataloader import ShapeNetDataloader
 from .dataset import ShapeNetDataset
 from ..utils.mesh_renderer.renderer import MeshRenderer
-from .nocs_dataset import NocsColoredShapeNetDataset
+from .nocs_colored_dataset import NocsColoredShapeNetDataset
+
+__all__ = [
+    'ShapeNetDataset',
+    'NocsColoredShapeNetDataset',
+    'ShapeNetDataloader',
+    'MeshRenderer',
+]
