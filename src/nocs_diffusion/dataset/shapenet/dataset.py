@@ -3,13 +3,10 @@ import json
 import torch
 import zipfile
 from torch.utils.data import Dataset
-from pytorch3d.io import load_objs_as_meshes
+from ..utils.object_handler import ObjHandler
 
 from ..synsetids import synsetid_to_cate, cate_to_synsetid
 from . import DEFAULT_SPLIT_PERCENTAGES
-
-from ..utils.mesh_to_cloud import load_clouds_from_obj_files
-
 
 class ShapeNetDataset(Dataset):
     '''
@@ -24,18 +21,13 @@ class ShapeNetDataset(Dataset):
                  device='cpu', # Allows user to laod all meshes to a device
                  verbose=False, # Print loading information
                  preload=False, # Load all meshes to memory
-                 as_clouds=False, # Load all meshes as point clouds
-                 points_per_cloud=5000, # Number of points to sample from each mesh
+                 **kwargs # Other arguments
                 ):
         self.preload = preload
         self.device = device
         self.root_dir = root_dir
         self.split = split
         self.split_percentages = split_percentages
-
-        # When set, objects are stored as clouds.
-        self.as_clouds = as_clouds
-        self.points_per_cloud = points_per_cloud
 
         if synset_ids:
             self.synset_ids = synset_ids
@@ -112,27 +104,20 @@ class ShapeNetDataset(Dataset):
     def get_data_and_meta_dicts(self, obj_files):
         # TODO: Separate get data and get meta
         data, meta = {}, {}
-
-        # Load data from files
-        if self.as_clouds: 
-            # loading as clouds
-            objs = load_clouds_from_obj_files(obj_files, 
-                                              self.points_per_cloud)
-            objs = [torch.tensor(o, dtype=torch.float32, device=self.device)
-                    for o in objs]
-        else: 
-            # loading as meshes
-            objs = load_objs_as_meshes(obj_files, device=self.device, 
-                                        create_texture_atlas=True,
-                                        load_textures=True)
+        objs = []
+        for f in obj_files:
+            o = ObjHandler(f)
+            o.colorize_nocs()
+            objs.append(o)        
         
         # Read meta data files
-        file_ids = [f.split('/')[-3] for f in obj_files]
+        path_splits = [f.split('/') for f in obj_files]
+        file_ids = [s[-3] if s[-2] == 'models' else s[-2] for s in path_splits]
         for f, fid, obj in zip(obj_files, file_ids, objs): 
             data[fid] = obj            
  
             shapenet_meta = os.path.exists(f"{f[:-4]}.json")
-            nocs_meta = os.path.exists(f"{os.path.dirname(f)}/bbox.json")
+            nocs_meta = os.path.exists(f"{os.path.dirname(f)}/bbox.txt")
             if shapenet_meta:
                 with open(f"{f[:-4]}.json", 'r') as f:
                     m = json.load(f)
@@ -143,17 +128,10 @@ class ShapeNetDataset(Dataset):
                     meta[fid] = m 
             elif nocs_meta:
                 # NOTE: not yet set to handle this.
-                # read f"{os.path.dirname(f)}/bbox.json"
+                # read f"{os.path.dirname(f)}/bbox.txt"
                 meta[fid] = {}
-
-        # Post process data
-        if self.as_clouds:
-            for k, v in data.items():
-                
-                # Center Normalized Objects
-                offset = (torch.tensor(meta[k]['min']) + 
-                          torch.tensor(meta[k]['max'])) / 2.0
-                data[k] = v - offset.to(v.device)
+            else:
+                meta[fid] = {} 
 
         return data, meta
     
@@ -163,11 +141,11 @@ class ShapeNetDataset(Dataset):
     def __getitem__(self, idx):
         synset_id, file_id, file_path = self.split_info[self.split][idx]
         if self.preload:
-            mesh = self.data[synset_id][file_id]
+            obj = self.data[synset_id][file_id]
             meta_data = self.meta[synset_id][file_id]
         else:
             obj, meta_data = self.get_data_and_meta_dicts([file_path])
-            mesh = obj[file_id]
+            obj, meta_data = obj[file_id], meta_data[file_id]
 
-        return mesh, synset_id, file_id, meta_data
+        return obj, synset_id, file_id, meta_data
 
