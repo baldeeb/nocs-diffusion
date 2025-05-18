@@ -17,23 +17,25 @@ class NocsColoredShapeNetDataset(ShapeNetDataset, Dataset):
 
 
     def __getitem__(self, idx):
-        obj, synset_id, _, _ =  super().__getitem__(idx)
+        obj, synset_id, file_id, _ =  super().__getitem__(idx)
         meshses = obj.get_pytorch3d_mesh()
         renders = self.renderer(meshses)
-        return self._pakage_renders(renders, synset_id)
+        return self._pakage_renders(renders, synset_id, file_id)
 
 
     def get_n_renders(self, idx, num_renders):
-        obj, synset_id, _, _ =  super().__getitem__(idx)
+        obj, synset_id, file_id, _ =  super().__getitem__(idx)
         meshses = obj.get_pytorch3d_mesh(broadcast=num_renders)
         renders = self.renderer(meshses)
-        return self._pakage_renders(renders, [synset_id]*num_renders)
+        return self._pakage_renders(renders, [synset_id]*num_renders, [file_id]*num_renders)
 
 
-    def _pakage_renders(self, renders, synset_id):
+    def _pakage_renders(self, renders, synset_id, file_id):
         return {'images':   renders['images'],
                 'depths':   renders['depths'],
                 'masks':    renders['masks'],
+                'synset_id': synset_id,
+                'file_id':  file_id,
                 'class_id': self.synset_id_to_idx[synset_id],}
 
 
